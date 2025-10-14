@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { Button, Input } from '@plateful/ui';
 import { auth } from '../../src/config/firebase';
 import {
@@ -15,6 +8,13 @@ import {
   deleteGroceryList,
 } from '../../src/services/firestore';
 import { GroceryList } from '@plateful/shared';
+import {
+  palette,
+  textVariants,
+  radius,
+  shadowPresets,
+  layoutSpacing,
+} from '../../src/theme';
 
 export default function Groceries() {
   const [lists, setLists] = useState<GroceryList[]>([]);
@@ -152,67 +152,77 @@ export default function Groceries() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: palette.background,
   },
   header: {
-    padding: 16,
-    backgroundColor: '#fff',
+    padding: layoutSpacing.screen,
+    backgroundColor: palette.surface,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
+    ...shadowPresets.card,
   },
   addListContainer: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    gap: 12,
+    padding: layoutSpacing.screen,
+    backgroundColor: palette.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.border,
+    gap: layoutSpacing.cardGap,
   },
   listContainer: {
-    padding: 16,
+    padding: layoutSpacing.screen,
+    gap: layoutSpacing.cardGap,
   },
   listItem: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: palette.surface,
+    padding: layoutSpacing.cardPadding,
+    borderRadius: radius.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    ...shadowPresets.card,
   },
   listContent: {
     flex: 1,
+    marginRight: layoutSpacing.cardGap,
   },
   listName: {
-    fontSize: 18,
+    ...textVariants.body,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    color: palette.textPrimary,
+    marginBottom: layoutSpacing.small / 2,
   },
   listInfo: {
-    fontSize: 14,
-    color: '#666',
+    ...textVariants.caption,
+    color: palette.textSecondary,
   },
   deleteButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: layoutSpacing.cardGap,
+    paddingVertical: layoutSpacing.small,
+    borderRadius: radius.chip,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.primary,
   },
   deleteText: {
-    color: '#FF3B30',
-    fontSize: 14,
+    color: palette.primary,
+    ...textVariants.caption,
     fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: layoutSpacing.screen,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#999',
-    marginBottom: 8,
+    ...textVariants.sectionTitle,
+    color: palette.textPrimary,
+    marginBottom: layoutSpacing.small,
   },
   emptySubtext: {
-    fontSize: 14,
-    color: '#999',
+    ...textVariants.caption,
+    color: palette.textSecondary,
+    textAlign: 'center',
   },
 });

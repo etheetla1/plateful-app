@@ -8,25 +8,28 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '@plateful/ui';
-import { signInWithEmail } from '../src/services/auth';
-import { isValidEmail } from '@plateful/shared';
+import { signUpWithEmail } from '../src/services/auth';
+import { isValidEmail, isValidPassword } from '@plateful/shared';
 
-export default function SignIn() {
+export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const router = useRouter();
 
   const validateForm = () => {
     let valid = true;
     setEmailError('');
     setPasswordError('');
+    setConfirmPasswordError('');
 
     if (!email) {
       setEmailError('Email is required');
@@ -39,34 +42,47 @@ export default function SignIn() {
     if (!password) {
       setPasswordError('Password is required');
       valid = false;
-    } else if (password.length < 6) {
-      setPasswordError('Password must be at least 6 characters');
+    } else if (!isValidPassword(password)) {
+      setPasswordError('Password must be at least 8 characters');
+      valid = false;
+    }
+
+    if (!confirmPassword) {
+      setConfirmPasswordError('Please confirm your password');
+      valid = false;
+    } else if (password !== confirmPassword) {
+      setConfirmPasswordError('Passwords do not match');
       valid = false;
     }
 
     return valid;
   };
 
-  const handleSignIn = async () => {
+  const handleRegister = async () => {
     if (!validateForm()) return;
 
     setLoading(true);
     try {
-      await signInWithEmail(email, password);
-      router.replace('/(tabs)');
+      await signUpWithEmail(email, password);
+      Alert.alert(
+        'Success',
+        'Account created successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)'),
+          },
+        ]
+      );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to sign in');
+      Alert.alert('Error', error.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
   };
 
-  const navigateToRegister = () => {
-    router.push('/register' as any);
-  };
-
-  const navigateToForgotPassword = () => {
-    router.push('/reset-password' as any);
+  const navigateToSignIn = () => {
+    router.back();
   };
 
   return (
@@ -80,12 +96,19 @@ export default function SignIn() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>🍽️</Text>
-            </View>
-            <Text style={styles.brandName}>Plateful</Text>
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={navigateToSignIn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color="#212121" />
+          </TouchableOpacity>
+
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Create a free</Text>
+            <Text style={styles.title}>account</Text>
           </View>
 
           {/* Form */}
@@ -120,28 +143,35 @@ export default function SignIn() {
               />
             </View>
 
-            <TouchableOpacity
-              onPress={navigateToForgotPassword}
-              style={styles.forgotPasswordButton}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-            </TouchableOpacity>
-
-            <Button
-              title="Log In"
-              onPress={handleSignIn}
-              loading={loading}
-              variant="primary"
-            />
-
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>Don't have an account?</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Repeat password</Text>
+              <Input
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setConfirmPasswordError('');
+                }}
+                placeholder="Enter your password again"
+                secureTextEntry
+                autoCapitalize="none"
+                error={confirmPasswordError}
+              />
             </View>
 
             <Button
               title="Register"
-              onPress={navigateToRegister}
+              onPress={handleRegister}
+              loading={loading}
+              variant="primary"
+            />
+
+            <View style={styles.signInContainer}>
+              <Text style={styles.signInText}>Already have an account?</Text>
+            </View>
+
+            <Button
+              title="Log In"
+              onPress={navigateToSignIn}
               variant="secondary"
               disabled={loading}
             />
@@ -162,38 +192,25 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingTop: 60,
+    paddingBottom: 40,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 60,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FF9800',
+  backButton: {
+    width: 40,
+    height: 40,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#FF9800',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    marginBottom: 20,
+    marginLeft: -8,
   },
-  logoText: {
-    fontSize: 48,
+  header: {
+    marginBottom: 40,
   },
-  brandName: {
-    fontSize: 28,
+  title: {
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#212121',
+    lineHeight: 40,
   },
   form: {
     gap: 16,
@@ -208,24 +225,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginLeft: 4,
   },
-  forgotPasswordButton: {
-    alignSelf: 'flex-end',
-    marginTop: -8,
-    marginBottom: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  forgotPasswordText: {
-    fontSize: 14,
-    color: '#64B5F6',
-    fontWeight: '500',
-  },
-  registerContainer: {
+  signInContainer: {
     alignItems: 'center',
     marginTop: 8,
     marginBottom: -8,
   },
-  registerText: {
+  signInText: {
     fontSize: 14,
     color: '#757575',
   },

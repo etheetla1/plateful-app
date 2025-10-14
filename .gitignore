@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+packages/ui/node_modules/
 .pnp
 .pnp.js
 
@@ -49,3 +50,9 @@ firestore-debug.log
 
 # OS
 Thumbs.db
+
+# Figma Integration
+tools/figma/.cache/
+tools/figma/exports/
+apps/mobile/assets/figma/
+.figma-cache

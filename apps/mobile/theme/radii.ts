@@ -1,0 +1,48 @@
+// Auto-generated from Figma
+// Do not edit manually - run 'pnpm figma:sync' to update
+
+export const radii = {
+  "rectangle-4": 30,
+  "ggprofile": 70,
+  "border": 4.300000190734863,
+  "capacity": 2.5,
+  "rectangle-2": 4,
+  "rectangle-3": 64,
+  "rectangle-18": 30,
+  "streak": 30,
+  "group-7": 30,
+  "group-9": 30,
+  "group-11": 30,
+  "group-10": 30,
+  "group-12": 30,
+  "group-8": 30,
+  "group-6": 30,
+  "flowbitecheck-outline": 30,
+  "group-5": 30,
+  "group-13": 4,
+  "group-15": 4,
+  "group-14": 30,
+  "email": 30,
+  "rectangle-1": 30,
+  "login-btn": 30,
+  "a2f16b6c-11ef-4f6d-bd28-ff553b416d36--2014-1028white-lasagna-with-swiss-chard-and-leeks-016-1": 30,
+  "group-16": 30,
+  "fluentpeople-16-regular": 30,
+  "mingcutetime-line": 30,
+  "group-17": 30,
+  "group-18": 30,
+  "rectangle-26": 4,
+  "rectangle-22": 4,
+  "rectangle-23": 4,
+  "rectangle-24": 4,
+  "rectangle-25": 4,
+  "register-btn": 30,
+  "dont-have": 4,
+  "password": 4,
+  "mdieye-outline": 4,
+  "rectangle-5": 30,
+  "rectangle-6": 30,
+  "forgot-password": 4
+} as const;
+
+export type Radii = typeof radii;

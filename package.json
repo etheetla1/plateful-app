@@ -15,7 +15,10 @@
     "lint": "turbo run lint",
     "mobile": "pnpm --filter mobile dev",
     "api": "pnpm --filter api dev",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "figma:sync": "cd tools/figma && pnpm install && pnpm sync",
+    "figma:tokens": "cd tools/figma && pnpm install && pnpm extract-tokens",
+    "figma:assets": "cd tools/figma && pnpm install && pnpm download-assets"
   },
   "devDependencies": {
     "prettier": "^3.1.1",

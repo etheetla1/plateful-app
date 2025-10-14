@@ -16,6 +16,12 @@ export function Button({
   disabled = false,
   loading = false 
 }: ButtonProps) {
+  const getActivityIndicatorColor = () => {
+    if (variant === 'primary') return '#fff';
+    if (variant === 'secondary') return '#fff';
+    return '#64B5F6';
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -27,13 +33,15 @@ export function Button({
       ]}
       onPress={onPress}
       disabled={disabled || loading}
+      activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? '#007AFF' : '#fff'} />
+        <ActivityIndicator color={getActivityIndicatorColor()} />
       ) : (
         <Text
           style={[
             styles.text,
+            variant === 'secondary' && styles.secondaryText,
             variant === 'outline' && styles.outlineText,
           ]}
         >
@@ -46,23 +54,32 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    paddingVertical: 12,
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 56,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   primary: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF9800',
   },
   secondary: {
-    backgroundColor: '#5856D6',
+    backgroundColor: '#64B5F6',
   },
   outline: {
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#007AFF',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   disabled: {
     opacity: 0.5,
@@ -72,7 +89,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  secondaryText: {
+    color: '#fff',
+  },
   outlineText: {
-    color: '#007AFF',
+    color: '#64B5F6',
   },
 });

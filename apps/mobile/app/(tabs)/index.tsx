@@ -3,6 +3,13 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { auth } from '../../src/config/firebase';
 import { getGroceryLists } from '../../src/services/firestore';
 import { GroceryList } from '@plateful/shared';
+import {
+  palette,
+  textVariants,
+  radius,
+  shadowPresets,
+  layoutSpacing,
+} from '../../src/theme';
 
 export default function Home() {
   const [lists, setLists] = useState<GroceryList[]>([]);
@@ -27,7 +34,7 @@ export default function Home() {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.greeting}>
           Welcome, {auth.currentUser?.displayName || auth.currentUser?.email}!
@@ -75,74 +82,83 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: palette.background,
+  },
+  content: {
+    paddingBottom: layoutSpacing.screen,
   },
   header: {
-    padding: 24,
-    backgroundColor: '#fff',
+    padding: layoutSpacing.screen,
+    backgroundColor: palette.surface,
+    borderBottomLeftRadius: radius.card,
+    borderBottomRightRadius: radius.card,
+    ...shadowPresets.card,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    ...textVariants.headline,
+    color: palette.textPrimary,
+    marginBottom: layoutSpacing.small,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    ...textVariants.body,
+    color: palette.textSecondary,
   },
   section: {
-    padding: 24,
-    marginTop: 16,
-    backgroundColor: '#fff',
+    marginHorizontal: layoutSpacing.screen,
+    marginTop: layoutSpacing.section,
+    padding: layoutSpacing.cardPadding,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+    ...shadowPresets.card,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    ...textVariants.sectionTitle,
+    color: palette.textPrimary,
+    marginBottom: layoutSpacing.cardGap,
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: 16,
+    gap: layoutSpacing.cardGap,
   },
   statCard: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
+    padding: layoutSpacing.cardPadding,
+    backgroundColor: palette.primary,
+    borderRadius: radius.card,
     alignItems: 'center',
+    ...shadowPresets.card,
   },
   statNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#007AFF',
-    marginBottom: 4,
+    ...textVariants.sectionTitle,
+    color: palette.textOnPrimary,
+    marginBottom: layoutSpacing.small,
   },
   statLabel: {
-    fontSize: 14,
-    color: '#666',
+    ...textVariants.caption,
+    color: palette.textOnPrimary,
   },
   listCard: {
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: layoutSpacing.cardPadding,
+    backgroundColor: palette.surface,
+    borderRadius: radius.card,
+    marginBottom: layoutSpacing.cardGap,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
   },
   listName: {
-    fontSize: 16,
+    ...textVariants.body,
+    color: palette.textPrimary,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    marginBottom: layoutSpacing.small / 2,
   },
   listCount: {
-    fontSize: 14,
-    color: '#666',
+    ...textVariants.caption,
+    color: palette.textSecondary,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#999',
+    ...textVariants.caption,
+    color: palette.textSecondary,
     textAlign: 'center',
-    paddingVertical: 20,
+    paddingVertical: layoutSpacing.section,
   },
 });

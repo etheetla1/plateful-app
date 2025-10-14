@@ -2,6 +2,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithCredential,
   User as FirebaseUser,
@@ -39,6 +40,10 @@ export async function signInWithGoogle(): Promise<FirebaseUser> {
   // Sign in to Firebase with the Google credential
   const userCredential = await signInWithCredential(auth, googleCredential);
   return userCredential.user;
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email);
 }
 
 export async function signOut(): Promise<void> {

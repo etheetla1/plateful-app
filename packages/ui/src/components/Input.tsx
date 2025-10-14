@@ -1,5 +1,6 @@
-import React from 'react';
-import { TextInput, StyleSheet, View, Text } from 'react-native';
+import React, { useState } from 'react';
+import { TextInput, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface InputProps {
   value: string;
@@ -22,19 +23,47 @@ export function Input({
   keyboardType = 'default',
   error,
 }: InputProps) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible(!isPasswordVisible);
+  };
+
   return (
     <View style={styles.container}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        style={[styles.input, error && styles.inputError]}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize={autoCapitalize}
-        keyboardType={keyboardType}
-        placeholderTextColor="#999"
-      />
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={[
+            styles.input,
+            isFocused && styles.inputFocused,
+            error && styles.inputError,
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          secureTextEntry={secureTextEntry && !isPasswordVisible}
+          autoCapitalize={autoCapitalize}
+          keyboardType={keyboardType}
+          placeholderTextColor="#9E9E9E"
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+        />
+        {secureTextEntry && (
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={togglePasswordVisibility}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+              size={24}
+              color="#757575"
+            />
+          </TouchableOpacity>
+        )}
+      </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
@@ -42,30 +71,46 @@ export function Input({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 4,
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '500',
+    color: '#212121',
     marginBottom: 8,
   },
+  inputContainer: {
+    position: 'relative',
+  },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderWidth: 0,
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     fontSize: 16,
-    backgroundColor: '#fff',
-    minHeight: 48,
+    backgroundColor: '#F5F5F5',
+    minHeight: 56,
+    color: '#212121',
+  },
+  inputFocused: {
+    backgroundColor: '#EEEEEE',
   },
   inputError: {
-    borderColor: '#FF3B30',
+    borderWidth: 1,
+    borderColor: '#F44336',
+    backgroundColor: '#FFEBEE',
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+    padding: 4,
   },
   error: {
-    color: '#FF3B30',
+    color: '#F44336',
     fontSize: 12,
-    marginTop: 4,
+    marginTop: 6,
+    marginLeft: 20,
   },
 });
