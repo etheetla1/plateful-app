@@ -1,159 +1,111 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { Button, Input } from '@plateful/ui';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  TouchableOpacity, 
+  ScrollView 
+} from 'react-native';
+import { colors } from '../../theme/colors';
 
-// Mock data for UI testing
-const MOCK_LISTS = [
-  {
-    id: '1',
-    name: 'Weekly Groceries',
-    items: [
-      { id: '1', name: 'Milk', quantity: 2, checked: false },
-      { id: '2', name: 'Bread', quantity: 1, checked: true },
-      { id: '3', name: 'Eggs', quantity: 12, checked: false },
-    ],
-    createdAt: new Date('2025-10-10').toISOString(),
-    ownerId: 'mock-user',
-  },
-  {
-    id: '2',
-    name: 'Party Supplies',
-    items: [
-      { id: '4', name: 'Chips', quantity: 3, checked: false },
-      { id: '5', name: 'Soda', quantity: 6, checked: false },
-    ],
-    createdAt: new Date('2025-10-12').toISOString(),
-    ownerId: 'mock-user',
-  },
-  {
-    id: '3',
-    name: 'Meal Prep - Chicken & Rice',
-    items: [
-      { id: '6', name: 'Chicken Breast', quantity: 2, checked: false },
-      { id: '7', name: 'Brown Rice', quantity: 1, checked: false },
-      { id: '8', name: 'Broccoli', quantity: 3, checked: true },
-    ],
-    createdAt: new Date('2025-10-13').toISOString(),
-    ownerId: 'mock-user',
-  },
+// Mock data matching Figma design
+const GROCERY_ITEMS = [
+  { id: '1', name: 'Eggs', checked: false },
+  { id: '2', name: 'Cheese', checked: true },
+  { id: '3', name: 'Bread', checked: false },
 ];
 
+const PANTRY_ITEMS = [
+  { id: '4', name: 'Sugar', checked: false },
+  { id: '5', name: 'Rice', checked: false },
+  { id: '6', name: 'Apple', checked: false },
+  { id: '7', name: 'Kiwi', checked: false },
+];
+
+type TabType = 'grocery' | 'pantry';
+
 export default function Groceries() {
-  const [lists, setLists] = useState(MOCK_LISTS);
-  const [newListName, setNewListName] = useState('');
-  const [showAddList, setShowAddList] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('grocery');
+  const [groceryItems, setGroceryItems] = useState(GROCERY_ITEMS);
+  const [pantryItems, setPantryItems] = useState(PANTRY_ITEMS);
 
-  const handleCreateList = () => {
-    if (!newListName.trim()) {
-      Alert.alert('Error', 'Please enter a list name');
-      return;
-    }
+  const currentItems = activeTab === 'grocery' ? groceryItems : pantryItems;
+  const setCurrentItems = activeTab === 'grocery' ? setGroceryItems : setPantryItems;
 
-    const newList = {
-      id: Date.now().toString(),
-      name: newListName.trim(),
-      items: [],
-      createdAt: new Date().toISOString(),
-      ownerId: 'mock-user',
-    };
-
-    setLists([newList, ...lists]);
-    setNewListName('');
-    setShowAddList(false);
-    Alert.alert('Success', `Created "${newList.name}"!`);
-  };
-
-  const handleDeleteList = (listId: string, listName: string) => {
-    Alert.alert(
-      'Delete List',
-      `Are you sure you want to delete "${listName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setLists(lists.filter(list => list.id !== listId));
-            Alert.alert('Deleted', `"${listName}" has been removed`);
-          },
-        },
-      ]
+  const toggleItem = (id: string) => {
+    setCurrentItems(items =>
+      items.map(item =>
+        item.id === id ? { ...item, checked: !item.checked } : item
+      )
     );
   };
 
-  const renderListItem = ({ item }: { item: typeof MOCK_LISTS[0] }) => {
-    const completedItems = item.items.filter(i => i.checked).length;
-    const totalItems = item.items.length;
-    const progress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
-
-    return (
-      <TouchableOpacity 
-        style={styles.listItem}
-        activeOpacity={0.7}
-      >
-        <View style={styles.listContent}>
-          <Text style={styles.listName}>{item.name}</Text>
-          <Text style={styles.listInfo}>
-            {completedItems}/{totalItems} completed • {new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-          </Text>
-          {totalItems > 0 && (
-            <View style={styles.progressContainer}>
-              <View style={[styles.progressBar, { width: `${progress}%` }]} />
-            </View>
-          )}
-        </View>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => handleDeleteList(item.id, item.name)}
-        >
-          <Text style={styles.deleteText}>🗑️</Text>
-        </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
+  const renderItem = ({ item }: { item: typeof GROCERY_ITEMS[0] }) => (
+    <TouchableOpacity
+      style={styles.listItem}
+      onPress={() => toggleItem(item.id)}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.checkbox, item.checked && styles.checkboxChecked]}>
+        {item.checked && <Text style={styles.checkmark}>✓</Text>}
+      </View>
+      <Text style={[styles.itemText, item.checked && styles.itemTextChecked]}>
+        {item.name}
+      </Text>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Grocery Lists</Text>
-        <Button
-          title={showAddList ? 'Cancel' : '+ New List'}
-          onPress={() => setShowAddList(!showAddList)}
-          variant={showAddList ? 'secondary' : 'primary'}
-        />
+        <Text style={styles.headerTitle}>Your Ingredients</Text>
+        
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'grocery' && styles.tabActive]}
+            onPress={() => setActiveTab('grocery')}
+          >
+            <Text style={[styles.tabText, activeTab === 'grocery' && styles.tabTextActive]}>
+              Grocery List
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'pantry' && styles.tabActive]}
+            onPress={() => setActiveTab('pantry')}
+          >
+            <Text style={[styles.tabText, activeTab === 'pantry' && styles.tabTextActive]}>
+              Pantry
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {showAddList && (
-        <View style={styles.addListContainer}>
-          <Input
-            value={newListName}
-            onChangeText={setNewListName}
-            placeholder="e.g., Weekly Groceries"
-            label="List Name"
-          />
-          <Button
-            title="Create List"
-            onPress={handleCreateList}
-            variant="primary"
-          />
-        </View>
-      )}
-
-      {lists.length === 0 ? (
+      {/* List */}
+      {currentItems.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>🛒</Text>
-          <Text style={styles.emptyText}>No grocery lists yet</Text>
-          <Text style={styles.emptySubtext}>Tap "New List" to create your first grocery list!</Text>
+          <Text style={styles.emptyText}>No items yet</Text>
+          <Text style={styles.emptySubtext}>
+            Tap + to add items to your {activeTab === 'grocery' ? 'grocery list' : 'pantry'}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={lists}
-          renderItem={renderListItem}
+          data={currentItems}
+          renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* Add Button */}
+      <TouchableOpacity style={styles.addButton} activeOpacity={0.8}>
+        <Text style={styles.addButtonText}>+</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -161,86 +113,90 @@ export default function Groceries() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
   },
   header: {
-    padding: 20,
+    backgroundColor: colors.surface,
     paddingTop: 16,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingBottom: 0,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
-    gap: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#212121',
+    color: colors.textPrimary,
+    marginBottom: 16,
   },
-  addListContainer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E0E0E0',
-    gap: 12,
+  tabContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: -1,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   listContainer: {
     padding: 20,
-    gap: 16,
+    paddingBottom: 100,
   },
   listItem: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
   },
-  listContent: {
-    flex: 1,
-    marginRight: 12,
-  },
-  listName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#212121',
-    marginBottom: 6,
-  },
-  listInfo: {
-    fontSize: 14,
-    color: '#757575',
-    marginBottom: 8,
-  },
-  progressContainer: {
-    height: 4,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    backgroundColor: '#4CAF50',
-    borderRadius: 2,
-  },
-  deleteButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF3E0',
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteText: {
-    fontSize: 20,
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: {
+    color: colors.surface,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  itemText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  itemTextChecked: {
+    color: colors.textSecondary,
+    textDecorationLine: 'line-through',
   },
   emptyContainer: {
     flex: 1,
@@ -248,20 +204,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 40,
   },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
   emptyText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
-    color: '#212121',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   emptySubtext: {
-    fontSize: 16,
-    color: '#757575',
+    fontSize: 14,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
+  },
+  addButton: {
+    position: 'absolute',
+    bottom: 32,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  addButtonText: {
+    color: colors.surface,
+    fontSize: 32,
+    fontWeight: '300',
+    marginTop: -2,
   },
 });
