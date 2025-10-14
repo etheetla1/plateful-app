@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '@plateful/ui';
-import { signUpWithEmail } from '../src/services/auth';
+import { signUpWithEmail } from '../../src/services/auth';
 import { isValidEmail, isValidPassword } from '@plateful/shared';
 
 export default function Register() {

@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Input } from '@plateful/ui';
-import { resetPassword } from '../src/services/auth';
+import { resetPassword } from '../../src/services/auth';
 import { isValidEmail } from '@plateful/shared';
 
 export default function ResetPassword() {

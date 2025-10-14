@@ -1,68 +1,69 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { Button, Input } from '@plateful/ui';
-import { auth } from '../../src/config/firebase';
-import {
-  getGroceryLists,
-  createGroceryList,
-  deleteGroceryList,
-} from '../../src/services/firestore';
-import { GroceryList } from '@plateful/shared';
-import {
-  palette,
-  textVariants,
-  radius,
-  shadowPresets,
-  layoutSpacing,
-} from '../../src/theme';
+
+// Mock data for UI testing
+const MOCK_LISTS = [
+  {
+    id: '1',
+    name: 'Weekly Groceries',
+    items: [
+      { id: '1', name: 'Milk', quantity: 2, checked: false },
+      { id: '2', name: 'Bread', quantity: 1, checked: true },
+      { id: '3', name: 'Eggs', quantity: 12, checked: false },
+    ],
+    createdAt: new Date('2025-10-10').toISOString(),
+    ownerId: 'mock-user',
+  },
+  {
+    id: '2',
+    name: 'Party Supplies',
+    items: [
+      { id: '4', name: 'Chips', quantity: 3, checked: false },
+      { id: '5', name: 'Soda', quantity: 6, checked: false },
+    ],
+    createdAt: new Date('2025-10-12').toISOString(),
+    ownerId: 'mock-user',
+  },
+  {
+    id: '3',
+    name: 'Meal Prep - Chicken & Rice',
+    items: [
+      { id: '6', name: 'Chicken Breast', quantity: 2, checked: false },
+      { id: '7', name: 'Brown Rice', quantity: 1, checked: false },
+      { id: '8', name: 'Broccoli', quantity: 3, checked: true },
+    ],
+    createdAt: new Date('2025-10-13').toISOString(),
+    ownerId: 'mock-user',
+  },
+];
 
 export default function Groceries() {
-  const [lists, setLists] = useState<GroceryList[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [lists, setLists] = useState(MOCK_LISTS);
   const [newListName, setNewListName] = useState('');
   const [showAddList, setShowAddList] = useState(false);
 
-  useEffect(() => {
-    loadLists();
-  }, []);
-
-  const loadLists = async () => {
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        const groceryLists = await getGroceryLists(user.uid);
-        setLists(groceryLists);
-      }
-    } catch (error) {
-      console.error('Error loading lists:', error);
-      Alert.alert('Error', 'Failed to load grocery lists');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateList = async () => {
+  const handleCreateList = () => {
     if (!newListName.trim()) {
       Alert.alert('Error', 'Please enter a list name');
       return;
     }
 
-    try {
-      const user = auth.currentUser;
-      if (user) {
-        await createGroceryList(newListName.trim(), user.uid);
-        setNewListName('');
-        setShowAddList(false);
-        await loadLists();
-        Alert.alert('Success', 'List created successfully');
-      }
-    } catch (error) {
-      console.error('Error creating list:', error);
-      Alert.alert('Error', 'Failed to create list');
-    }
+    const newList = {
+      id: Date.now().toString(),
+      name: newListName.trim(),
+      items: [],
+      createdAt: new Date().toISOString(),
+      ownerId: 'mock-user',
+    };
+
+    setLists([newList, ...lists]);
+    setNewListName('');
+    setShowAddList(false);
+    Alert.alert('Success', `Created "${newList.name}"!`);
   };
 
-  const handleDeleteList = async (listId: string, listName: string) => {
+  const handleDeleteList = (listId: string, listName: string) => {
     Alert.alert(
       'Delete List',
       `Are you sure you want to delete "${listName}"?`,
@@ -71,45 +72,54 @@ export default function Groceries() {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteGroceryList(listId);
-              await loadLists();
-              Alert.alert('Success', 'List deleted successfully');
-            } catch (error) {
-              console.error('Error deleting list:', error);
-              Alert.alert('Error', 'Failed to delete list');
-            }
+          onPress: () => {
+            setLists(lists.filter(list => list.id !== listId));
+            Alert.alert('Deleted', `"${listName}" has been removed`);
           },
         },
       ]
     );
   };
 
-  const renderListItem = ({ item }: { item: GroceryList }) => (
-    <View style={styles.listItem}>
-      <View style={styles.listContent}>
-        <Text style={styles.listName}>{item.name}</Text>
-        <Text style={styles.listInfo}>
-          {item.items.length} items • Created {new Date(item.createdAt).toLocaleDateString()}
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteList(item.id, item.name)}
+  const renderListItem = ({ item }: { item: typeof MOCK_LISTS[0] }) => {
+    const completedItems = item.items.filter(i => i.checked).length;
+    const totalItems = item.items.length;
+    const progress = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+
+    return (
+      <TouchableOpacity 
+        style={styles.listItem}
+        activeOpacity={0.7}
       >
-        <Text style={styles.deleteText}>Delete</Text>
+        <View style={styles.listContent}>
+          <Text style={styles.listName}>{item.name}</Text>
+          <Text style={styles.listInfo}>
+            {completedItems}/{totalItems} completed • {new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          </Text>
+          {totalItems > 0 && (
+            <View style={styles.progressContainer}>
+              <View style={[styles.progressBar, { width: `${progress}%` }]} />
+            </View>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteList(item.id, item.name)}
+        >
+          <Text style={styles.deleteText}>🗑️</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.headerTitle}>My Grocery Lists</Text>
         <Button
-          title={showAddList ? 'Cancel' : 'New List'}
+          title={showAddList ? 'Cancel' : '+ New List'}
           onPress={() => setShowAddList(!showAddList)}
-          variant={showAddList ? 'outline' : 'primary'}
+          variant={showAddList ? 'secondary' : 'primary'}
         />
       </View>
 
@@ -118,24 +128,22 @@ export default function Groceries() {
           <Input
             value={newListName}
             onChangeText={setNewListName}
-            placeholder="Enter list name"
+            placeholder="e.g., Weekly Groceries"
             label="List Name"
           />
           <Button
             title="Create List"
             onPress={handleCreateList}
+            variant="primary"
           />
         </View>
       )}
 
-      {loading ? (
+      {lists.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>Loading...</Text>
-        </View>
-      ) : lists.length === 0 ? (
-        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyEmoji}>🛒</Text>
           <Text style={styles.emptyText}>No grocery lists yet</Text>
-          <Text style={styles.emptySubtext}>Create your first list to get started!</Text>
+          <Text style={styles.emptySubtext}>Tap "New List" to create your first grocery list!</Text>
         </View>
       ) : (
         <FlatList
@@ -143,6 +151,7 @@ export default function Groceries() {
           renderItem={renderListItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -152,77 +161,107 @@ export default function Groceries() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: '#F5F5F5',
   },
   header: {
-    padding: layoutSpacing.screen,
-    backgroundColor: palette.surface,
-    borderBottomLeftRadius: radius.card,
-    borderBottomRightRadius: radius.card,
-    ...shadowPresets.card,
+    padding: 20,
+    paddingTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    gap: 12,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#212121',
   },
   addListContainer: {
-    padding: layoutSpacing.screen,
-    backgroundColor: palette.surface,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: palette.border,
-    gap: layoutSpacing.cardGap,
+    borderBottomColor: '#E0E0E0',
+    gap: 12,
   },
   listContainer: {
-    padding: layoutSpacing.screen,
-    gap: layoutSpacing.cardGap,
+    padding: 20,
+    gap: 16,
   },
   listItem: {
-    backgroundColor: palette.surface,
-    padding: layoutSpacing.cardPadding,
-    borderRadius: radius.card,
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    ...shadowPresets.card,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   listContent: {
     flex: 1,
-    marginRight: layoutSpacing.cardGap,
+    marginRight: 12,
   },
   listName: {
-    ...textVariants.body,
+    fontSize: 18,
     fontWeight: '600',
-    color: palette.textPrimary,
-    marginBottom: layoutSpacing.small / 2,
+    color: '#212121',
+    marginBottom: 6,
   },
   listInfo: {
-    ...textVariants.caption,
-    color: palette.textSecondary,
+    fontSize: 14,
+    color: '#757575',
+    marginBottom: 8,
+  },
+  progressContainer: {
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#4CAF50',
+    borderRadius: 2,
   },
   deleteButton: {
-    paddingHorizontal: layoutSpacing.cardGap,
-    paddingVertical: layoutSpacing.small,
-    borderRadius: radius.chip,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3E0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   deleteText: {
-    color: palette.primary,
-    ...textVariants.caption,
-    fontWeight: '600',
+    fontSize: 20,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: layoutSpacing.screen,
+    padding: 40,
+  },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 16,
   },
   emptyText: {
-    ...textVariants.sectionTitle,
-    color: palette.textPrimary,
-    marginBottom: layoutSpacing.small,
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#212121',
+    marginBottom: 8,
   },
   emptySubtext: {
-    ...textVariants.caption,
-    color: palette.textSecondary,
+    fontSize: 16,
+    color: '#757575',
     textAlign: 'center',
+    lineHeight: 24,
   },
 });

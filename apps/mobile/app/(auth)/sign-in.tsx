@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input } from '@plateful/ui';
-import { signInWithEmail } from '../src/services/auth';
+import { signInWithEmail } from '../../src/services/auth';
 import { isValidEmail } from '@plateful/shared';
 
 export default function SignIn() {
@@ -62,11 +62,11 @@ export default function SignIn() {
   };
 
   const navigateToRegister = () => {
-    router.push('/register' as any);
+    router.push('/(auth)/register');
   };
 
   const navigateToForgotPassword = () => {
-    router.push('/reset-password' as any);
+    router.push('/(auth)/reset-password');
   };
 
   return (

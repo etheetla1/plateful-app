@@ -1,56 +1,32 @@
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  GoogleAuthProvider,
-  signInWithCredential,
-  User as FirebaseUser,
-} from 'firebase/auth';
-import { auth } from '../config/firebase';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// Temporarily stubbed auth service for testing UI
+// TODO: Re-enable Firebase auth later
 
-// Configure Google Sign-In
-GoogleSignin.configure({
-  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  offlineAccess: true,
-});
+export const signInWithEmail = async (email: string, password: string) => {
+  console.log('🔐 [STUB] Sign in attempt:', email);
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  throw new Error('Auth is temporarily disabled for UI testing');
+};
 
-export async function signInWithEmail(email: string, password: string): Promise<FirebaseUser> {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  return userCredential.user;
-}
+export const signUpWithEmail = async (email: string, password: string, displayName: string) => {
+  console.log('🔐 [STUB] Sign up attempt:', email);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  throw new Error('Auth is temporarily disabled for UI testing');
+};
 
-export async function signUpWithEmail(email: string, password: string): Promise<FirebaseUser> {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  return userCredential.user;
-}
+export const signOut = async () => {
+  console.log('🔐 [STUB] Sign out');
+  await new Promise(resolve => setTimeout(resolve, 500));
+};
 
-export async function signInWithGoogle(): Promise<FirebaseUser> {
-  // Check if device supports Google Play
-  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  
-  // Get the user's ID token
-  const { idToken } = await GoogleSignin.signIn();
-  
-  // Create a Google credential with the token
-  const googleCredential = GoogleAuthProvider.credential(idToken);
-  
-  // Sign in to Firebase with the Google credential
-  const userCredential = await signInWithCredential(auth, googleCredential);
-  return userCredential.user;
-}
+export const resetPassword = async (email: string) => {
+  console.log('🔐 [STUB] Password reset for:', email);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  throw new Error('Auth is temporarily disabled for UI testing');
+};
 
-export async function resetPassword(email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
-}
-
-export async function signOut(): Promise<void> {
-  await firebaseSignOut(auth);
-  await GoogleSignin.signOut();
-}
-
-export function getCurrentUser(): FirebaseUser | null {
-  return auth.currentUser;
-}
+export const signInWithGoogle = async () => {
+  console.log('🔐 [STUB] Google sign in');
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  throw new Error('Auth is temporarily disabled for UI testing');
+};
