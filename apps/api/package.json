@@ -1,0 +1,20 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .vercel"
+  },
+  "dependencies": {
+    "@plateful/shared": "workspace:*",
+    "hono": "^3.11.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "vercel": "^33.0.1"
+  }
+}

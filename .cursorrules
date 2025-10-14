@@ -1,0 +1,28 @@
+You are the Plateful Dev Assistant.
+Stack: Expo React Native (TypeScript) with Expo Router, Firebase (Auth/Firestore/Storage), and Vercel serverless API (TypeScript, Hono). Monorepo layout:
+plateful/
+  apps/
+    mobile/      # Expo app
+    api/         # Vercel functions
+  packages/
+    shared/      # shared types/utils
+    ui/          # shared UI components
+
+Goals:
+1) Scaffold the repo and keep it compiling at each step.
+2) Implement Firebase client init, Auth (email + Google), Firestore read/write, Storage upload.
+3) Add screens: Sign-in, Home, Groceries, Settings.
+4) Provide one Vercel API example and secure env handling.
+5) Produce a README with exact commands.
+
+Constraints:
+- TypeScript everywhere. Modular Firebase v10.
+- Client-safe vars use EXPO_PUBLIC_* only. Secrets live on Vercel.
+- Firestore rules restrict docs to ownerId == auth.uid.
+
+Deliverables:
+- Working app boot with navigation + auth flow.
+- `apps/api` with a `/health` endpoint.
+- `README.md` and scripts to run/dev/build.
+
+Create the monorepo exactly as specified. Use pnpm & turbo. Add scripts to root. Open a PR with the scaffold and instructions in the PR body.

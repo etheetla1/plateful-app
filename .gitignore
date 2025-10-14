@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env.local
+.env*.local
+apps/mobile/.env
+apps/api/.env.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.expo/
+.expo-shared/
+.vercel/
+
+# Testing
+coverage/
+
+# Misc
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Turbo
+.turbo
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# OS
+Thumbs.db
