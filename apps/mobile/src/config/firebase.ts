@@ -1,6 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Debug: Log environment variables
 console.log('📦 Firebase Config Check:');
@@ -28,7 +29,7 @@ if (missingKeys.length > 0) {
 }
 
 // Initialize Firebase (prevent duplicate initialization)
-let app;
+let app: FirebaseApp;
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   console.log('✅ Firebase App initialized successfully');
@@ -38,7 +39,7 @@ try {
 }
 
 // Initialize Firestore
-let db;
+let db: Firestore;
 try {
   db = getFirestore(app);
   console.log('✅ Firestore initialized successfully');
@@ -48,7 +49,7 @@ try {
 }
 
 // Initialize Storage
-let storage;
+let storage: FirebaseStorage;
 try {
   storage = getStorage(app);
   console.log('✅ Storage initialized successfully');
@@ -57,15 +58,19 @@ try {
   throw error;
 }
 
-// Auth stub for Expo Go compatibility
-// Firebase Auth Web SDK doesn't work in Expo Go - you'll need a development build
-// For now, we export a mock auth object so the app doesn't crash
-const auth = {
-  currentUser: null,
-  onAuthStateChanged: () => () => {},
-} as any;
+// Initialize Auth with browser persistence (works with React Native)
+let auth: Auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: browserLocalPersistence
+  });
+  console.log('✅ Firebase Auth initialized successfully');
+} catch (error) {
+  // If already initialized, get existing instance
+  auth = getAuth(app);
+  console.log('✅ Firebase Auth instance retrieved');
+}
 
-console.log('⚠️ Firebase Auth is STUBBED - Auth features require a development build (not Expo Go)');
-console.log('🔥 Firebase partially initialized for project:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
+console.log('🔥 Firebase fully initialized for project:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
 
 export { app, auth, db, storage };

@@ -1016,6 +1016,3 @@ pnpm type-check   # Type check only
 ## Additional Documentation
 
 - **[Backend Setup Guide](docs/BACKEND_SETUP.md)** - Comprehensive backend architecture and setup
-- **[Figma Integration](docs/FIGMA_INTEGRATION.md)** - Design token sync and asset extraction
-- **[Auth Screens Guide](docs/AUTH_SCREENS_GUIDE.md)** - Authentication implementation details
-- **[Firebase Verification](docs/FIREBASE_VERIFICATION.md)** - Firebase setup

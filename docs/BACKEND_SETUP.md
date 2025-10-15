@@ -29,7 +29,7 @@ Plateful uses a **serverless-first architecture** combining Firebase Backend-as-
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        CLIENT LAYER                              │
+│                        CLIENT LAYER                             │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │   Expo React Native App (iOS/Android)                    │   │
 │  │   - Expo Router (file-based routing)                     │   │
@@ -46,8 +46,8 @@ Plateful uses a **serverless-first architecture** combining Firebase Backend-as-
          └──────────┬────────┘    └───┬──────────────┘
                     │                  │
 ┌───────────────────▼──────────────────▼─────────────────────────┐
-│                      BACKEND LAYER                              │
-│                                                                  │
+│                      BACKEND LAYER                             │
+│                                                                │
 │  ┌─────────────────────────────┐    ┌──────────────────────┐   │
 │  │   Firebase Services         │    │   Vercel Functions   │   │
 │  │                             │    │                      │   │
@@ -65,7 +65,7 @@ Plateful uses a **serverless-first architecture** combining Firebase Backend-as-
 │  │                             │    │                      │   │
 │  │  Region: us-central1        │    │  Region: Edge        │   │
 │  └─────────────────────────────┘    └──────────────────────┘   │
-└──────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ### Data Flow
