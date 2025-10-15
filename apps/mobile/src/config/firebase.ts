@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 // Debug: Log environment variables
@@ -47,13 +47,13 @@ try {
   throw error;
 }
 
-// Initialize Auth with browser persistence (works with React Native)
+// Initialize Auth with IndexedDB persistence (works with React Native)
 let auth: Auth;
 try {
   auth = initializeAuth(app, {
-    persistence: browserLocalPersistence
+    persistence: indexedDBLocalPersistence
   });
-  console.log('✅ Firebase Auth initialized successfully');
+  console.log('✅ Firebase Auth initialized successfully with IndexedDB persistence');
 } catch (error) {
   // If already initialized, get existing instance
   auth = getAuth(app);
