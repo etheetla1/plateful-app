@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Debug: Log environment variables
 console.log('📦 Firebase Config Check:');
@@ -48,16 +47,6 @@ try {
   throw error;
 }
 
-// Initialize Storage
-let storage: FirebaseStorage;
-try {
-  storage = getStorage(app);
-  console.log('✅ Storage initialized successfully');
-} catch (error) {
-  console.error('❌ Storage initialization failed:', error);
-  throw error;
-}
-
 // Initialize Auth with browser persistence (works with React Native)
 let auth: Auth;
 try {
@@ -73,4 +62,4 @@ try {
 
 console.log('🔥 Firebase fully initialized for project:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
 
-export { app, auth, db, storage };
+export { app, auth, db };
