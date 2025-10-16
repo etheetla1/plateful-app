@@ -18,7 +18,7 @@ async function searchAndExtractRecipe() {
   try {
     console.log(`Searching for ${recipeFor} recipe...\n`);
     
-    // Use the server-side web_search tool
+    // Use the server-side web_search tool (same logic as your original simple-recipe.ts)
     const response = await (client.messages.create as any)({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 4096,

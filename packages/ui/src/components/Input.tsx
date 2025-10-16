@@ -56,6 +56,7 @@ export function Input({
             onPress={togglePasswordVisibility}
             activeOpacity={0.7}
           >
+            {/* @ts-ignore */}
             <Ionicons
               name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
               size={24}

@@ -13,6 +13,7 @@
     "clean": "rm -rf .expo"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
     "@expo/vector-icons": "^15.0.2",
     "@plateful/shared": "workspace:*",
     "@plateful/ui": "workspace:*",

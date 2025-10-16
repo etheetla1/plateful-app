@@ -17,10 +17,12 @@ import { isValidEmail, isValidPassword } from '@plateful/shared';
 
 export default function Register() {
   const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [displayNameError, setDisplayNameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const router = useRouter();
@@ -28,8 +30,14 @@ export default function Register() {
   const validateForm = () => {
     let valid = true;
     setEmailError('');
+    setDisplayNameError('');
     setPasswordError('');
     setConfirmPasswordError('');
+
+    if (!displayName) {
+      setDisplayNameError('Display name is required');
+      valid = false;
+    }
 
     if (!email) {
       setEmailError('Email is required');
@@ -63,7 +71,7 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await signUpWithEmail(email, password);
+      await signUpWithEmail(email, password, displayName);
       Alert.alert(
         'Success',
         'Account created successfully!',
@@ -113,6 +121,20 @@ export default function Register() {
 
           {/* Form */}
           <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Display Name</Text>
+              <Input
+                value={displayName}
+                onChangeText={(text) => {
+                  setDisplayName(text);
+                  setDisplayNameError('');
+                }}
+                placeholder="Enter your display name"
+                autoCapitalize="none"
+                error={displayNameError}
+              />
+            </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <Input

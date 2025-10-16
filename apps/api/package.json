@@ -3,17 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "vercel dev",
+    "dev": "tsx dev-server.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
     "clean": "rm -rf .vercel"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "@hono/node-server": "^1.11.1",
     "@plateful/shared": "workspace:*",
-    "hono": "^3.11.7"
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "dotenv": "^16.3.1",
+    "hono": "^3.11.7",
+    "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
+    "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "vercel": "^33.0.1"
   }
