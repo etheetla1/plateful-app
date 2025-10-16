@@ -1,0 +1,19 @@
+{
+  "name": "proof-of-concept",
+  "version": "1.0.0",
+  "description": "Recipe search proof of concept",
+  "main": "simple-recipe.ts",
+  "scripts": {
+    "start": "ts-node simple-recipe.ts",
+    "dev": "ts-node --watch simple-recipe.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.67.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0"
+  }
+}
