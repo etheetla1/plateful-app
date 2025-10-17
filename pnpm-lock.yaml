@@ -32,6 +32,9 @@ importers:
       '@plateful/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
       axios:
         specifier: ^1.12.2
         version: 1.12.2
@@ -47,6 +50,9 @@ importers:
       react-native-web:
         specifier: ^0.21.0
         version: 0.21.2(react-dom@19.1.0)(react@19.1.0)
+      uuid:
+        specifier: ^13.0.0
+        version: 13.0.0
     devDependencies:
       '@types/node':
         specifier: ^20.10.6
@@ -154,6 +160,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@plateful/shared':
+        specifier: workspace:^
+        version: link:../shared
       react:
         specifier: '*'
         version: 19.1.0
@@ -3627,7 +3636,6 @@ packages:
     deprecated: This is a stub types definition. uuid provides its own type definitions, so you do not need this installed.
     dependencies:
       uuid: 7.0.3
-    dev: true
 
   /@types/yargs-parser@21.0.3:
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}
@@ -9203,6 +9211,11 @@ packages:
   /utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
+    dev: false
+
+  /uuid@13.0.0:
+    resolution: {integrity: sha512-XQegIaBTVUjSHliKqcnFqYypAd4S+WCYt5NIeRs6w/UAry7z8Y9j5ZwRRL4kzq9U3sD6v+85er9FvkEaBpji2w==}
+    hasBin: true
     dev: false
 
   /uuid@3.3.2:

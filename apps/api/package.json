@@ -13,11 +13,13 @@
     "@azure/cosmos": "^4.0.0",
     "@hono/node-server": "^1.11.1",
     "@plateful/shared": "workspace:*",
+    "@types/uuid": "^11.0.0",
     "axios": "^1.12.2",
     "cheerio": "^1.1.2",
     "dotenv": "^16.3.1",
     "hono": "^3.11.7",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

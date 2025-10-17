@@ -19,8 +19,13 @@ export const colors = {
   userBubble: '#D7F4E5',     // Pale mint tone - user messages
   botBubble: '#FFFFFF',      // Clean white - bot messages
   
-  // Utility Colors (1)
+  // Utility Colors (2)
   border: '#E0E0E0',         // Light gray - borders, dividers
+  divider: '#E0E0E0',        // Light gray - dividers (alias for border)
+  
+  // Light variants (2)
+  primaryLight: '#A8E6D9',   // Light mint - subtle backgrounds
+  secondaryLight: '#9CA3A8', // Light slate - subtle backgrounds
 } as const;
 
 // Semantic color mappings
