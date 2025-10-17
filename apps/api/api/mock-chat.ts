@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { v4 as uuidv4 } from 'uuid';
+import Anthropic from '@anthropic-ai/sdk';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 
 const app = new Hono();
@@ -168,6 +169,61 @@ app.get('/conversations/user/:userID', async (c) => {
   } catch (error) {
     console.error('🎭 Error fetching mock conversations:', error);
     return c.json({ error: 'Failed to fetch conversations' }, 500);
+  }
+});
+
+/**
+ * POST /ai-response - Generate AI response for a conversation (Mock version)
+ */
+app.post('/ai-response', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { conversationID } = body;
+
+    if (!conversationID) {
+      return c.json({ error: 'conversationID is required' }, 400);
+    }
+
+    // Get conversation messages from mock storage
+    const messages = mockMessages.get(conversationID) || [];
+
+    if (messages.length === 0) {
+      return c.json({ error: 'No messages found in conversation' }, 404);
+    }
+
+    // Initialize Anthropic client
+    const client = new Anthropic({ 
+      apiKey: process.env.ANTHROPIC_API_KEY 
+    });
+
+    // Build conversation history for Claude
+    const conversationHistory = messages.map(msg => ({
+      role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+      content: msg.content
+    }));
+
+    // Generate AI response using Claude
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      system: "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused.",
+      messages: conversationHistory
+    });
+
+    // Extract the AI response
+    let aiResponse = '';
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        aiResponse += block.text;
+      }
+    }
+
+    console.log(`🎭 [MOCK] Generated AI response for conversation ${conversationID}`);
+    return c.json({ response: aiResponse });
+
+  } catch (error) {
+    console.error('🎭 Error generating mock AI response:', error);
+    return c.json({ error: 'Failed to generate AI response' }, 500);
   }
 });
 

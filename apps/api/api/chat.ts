@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import Anthropic from '@anthropic-ai/sdk';
 import { getContainer, generateId, isCosmosAvailable } from '../lib/cosmos';
 import type { ChatMessage, ChatConversation, ChatMessageCreateRequest, ConversationCreateRequest } from '@plateful/shared';
 
@@ -242,6 +243,75 @@ app.get('/conversations/user/:userID', async (c) => {
   } catch (error) {
     console.error('Error fetching conversations:', error);
     return c.json({ error: 'Failed to fetch conversations' }, 500);
+  }
+});
+
+/**
+ * Generate AI response for a conversation
+ * POST /chat/ai-response
+ */
+app.post('/ai-response', async (c) => {
+  if (!isCosmosAvailable()) {
+    return c.json({ error: 'Chat service not available' }, 503);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { conversationID } = body;
+
+    if (!conversationID) {
+      return c.json({ error: 'conversationID is required' }, 400);
+    }
+
+    // Get conversation messages
+    const messagesContainer = getContainer('chatMessages');
+    if (!messagesContainer) {
+      return c.json({ error: 'Database not available' }, 503);
+    }
+
+    const { resources: messages } = await messagesContainer.items
+      .query<ChatMessage>({
+        query: 'SELECT * FROM c WHERE c.conversationID = @conversationID ORDER BY c.messageIndex ASC',
+        parameters: [{ name: '@conversationID', value: conversationID }],
+      })
+      .fetchAll();
+
+    if (messages.length === 0) {
+      return c.json({ error: 'No messages found in conversation' }, 404);
+    }
+
+    // Initialize Anthropic client
+    const client = new Anthropic({ 
+      apiKey: process.env.ANTHROPIC_API_KEY 
+    });
+
+    // Build conversation history for Claude
+    const conversationHistory = messages.map(msg => ({
+      role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+      content: msg.content
+    }));
+
+    // Generate AI response using Claude
+    const response = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 500,
+      system: "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused.",
+      messages: conversationHistory
+    });
+
+    // Extract the AI response
+    let aiResponse = '';
+    for (const block of response.content) {
+      if (block.type === 'text') {
+        aiResponse += block.text;
+      }
+    }
+
+    return c.json({ response: aiResponse });
+
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    return c.json({ error: 'Failed to generate AI response' }, 500);
   }
 });
 

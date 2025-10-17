@@ -157,23 +157,32 @@ export default function ChatScreen() {
   };
 
   const getAIResponse = async (messageHistory: ChatMessage[]): Promise<string> => {
-    // This is a simplified AI response - in production, you'd call Claude API
-    // For now, we'll provide contextual responses based on keywords
-    const lastUserMessage = messageHistory
-      .filter(m => m.role === 'user')
-      .pop()?.content.toLowerCase() || '';
+    try {
+      console.log('🤖 Calling real AI for response...');
+      
+      const response = await fetch(`${API_BASE}/api/chat/ai-response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationID: conversationID,
+        }),
+      });
 
-    // Simple keyword-based responses
-    if (lastUserMessage.includes('spicy') || lastUserMessage.includes('hot')) {
-      return "Great! I love spicy food. How about dishes like Chicken Tikka Masala, Pad Thai, or Szechuan Beef? Do any of these sound good to you?";
-    } else if (lastUserMessage.includes('italian')) {
-      return "Italian cuisine is wonderful! Would you prefer pasta (like Carbonara or Bolognese), pizza, or something like Chicken Parmesan?";
-    } else if (lastUserMessage.includes('healthy') || lastUserMessage.includes('light')) {
-      return "I can help you find healthy options! How about Grilled Salmon with Vegetables, Quinoa Buddha Bowl, or Greek Chicken Salad?";
-    } else if (lastUserMessage.includes('yes') || lastUserMessage.includes('sounds good') || lastUserMessage.includes('that')) {
-      return "Perfect! I've got your choice. Click 'Find Recipe' below and I'll search for an authentic recipe for you!";
-    } else {
-      return "That sounds interesting! Could you tell me more about what kind of flavors or ingredients you're interested in? Or would you like me to suggest some popular options?";
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ AI response failed:', errorData);
+        throw new Error(`AI response failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ AI response received:', data.response);
+      
+      return data.response || "I'm here to help you find delicious recipes! What are you in the mood for?";
+      
+    } catch (error) {
+      console.error('❌ Failed to get AI response:', error);
+      // Fallback to a simple response if AI fails
+      return "I'm here to help you find delicious recipes! What are you in the mood for?";
     }
   };
 
