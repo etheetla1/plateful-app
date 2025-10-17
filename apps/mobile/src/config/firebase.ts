@@ -2,11 +2,13 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-// Debug: Log environment variables
-console.log('📦 Firebase Config Check:');
-console.log('API Key:', process.env.EXPO_PUBLIC_FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
-console.log('Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
-console.log('Auth Domain:', process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN);
+// Debug: Log environment variables (only in development)
+if (__DEV__) {
+  console.log('📦 Firebase Config Check:');
+  console.log('API Key:', process.env.EXPO_PUBLIC_FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
+  console.log('Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
+  console.log('Auth Domain:', process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN);
+}
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
