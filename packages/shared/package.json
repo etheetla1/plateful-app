@@ -9,6 +9,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/uuid": "^11.0.0",
     "typescript": "^5.3.3"
   }
 }

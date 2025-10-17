@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TextInput, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { allColors as colors } from '@plateful/shared';
 
 interface InputProps {
   value: string;
@@ -46,7 +47,7 @@ export function Input({
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           autoCapitalize={autoCapitalize}
           keyboardType={keyboardType}
-          placeholderTextColor="#9E9E9E"
+          placeholderTextColor={colors.disabled}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
         />
@@ -60,7 +61,7 @@ export function Input({
             <Ionicons
               name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
               size={24}
-              color="#757575"
+              color={colors.textSecondary}
             />
           </TouchableOpacity>
         )}
@@ -77,7 +78,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#212121',
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   inputContainer: {
@@ -89,17 +90,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     fontSize: 16,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     minHeight: 56,
-    color: '#212121',
+    color: colors.textPrimary,
   },
   inputFocused: {
-    backgroundColor: '#EEEEEE',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary,
   },
   inputError: {
     borderWidth: 1,
-    borderColor: '#F44336',
-    backgroundColor: '#FFEBEE',
+    borderColor: colors.error,
+    backgroundColor: colors.surface,
   },
   eyeIcon: {
     position: 'absolute',
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   error: {
-    color: '#F44336',
+    color: colors.error,
     fontSize: 12,
     marginTop: 6,
     marginLeft: 20,

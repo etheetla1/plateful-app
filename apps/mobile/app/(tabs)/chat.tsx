@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@plateful/ui';
+import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 
 const API_BASE = 'http://localhost:3000';
@@ -227,11 +228,11 @@ export default function ChatScreen() {
     >
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Ionicons name="chatbubbles" size={24} color="#4CAF50" />
+          <Ionicons name="chatbubbles" size={24} color={colors.primary} />
           <Text style={styles.title}>Recipe Chat</Text>
         </View>
         <TouchableOpacity onPress={startNewConversation} style={styles.newChatButton}>
-          <Ionicons name="add-circle-outline" size={24} color="#4CAF50" />
+          <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -272,7 +273,7 @@ export default function ChatScreen() {
         ))}
         {loading && (
           <View style={styles.loadingBubble}>
-            <ActivityIndicator size="small" color="#757575" />
+            <ActivityIndicator size="small" color={colors.textSecondary} />
           </View>
         )}
       </ScrollView>
@@ -308,7 +309,7 @@ export default function ChatScreen() {
           <Ionicons
             name="send"
             size={20}
-            color={!inputText.trim() || loading ? '#9E9E9E' : '#FFFFFF'}
+            color={!inputText.trim() || loading ? colors.disabled : colors.surface}
           />
         </TouchableOpacity>
       </View>
@@ -319,16 +320,16 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.border,
   },
   headerContent: {
     flexDirection: 'row',
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#212121',
+    color: colors.textPrimary,
   },
   newChatButton: {
     padding: 4,
@@ -357,77 +358,77 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.userBubble,
   },
   assistantBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.botBubble,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.border,
   },
   messageText: {
     fontSize: 15,
     lineHeight: 20,
   },
   userText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
   },
   assistantText: {
-    color: '#212121',
+    color: colors.textPrimary,
   },
   timestamp: {
     fontSize: 11,
     marginTop: 4,
   },
   userTimestamp: {
-    color: '#E8F5E9',
+    color: colors.textSecondary,
     textAlign: 'right',
   },
   assistantTimestamp: {
-    color: '#9E9E9E',
+    color: colors.textSecondary,
   },
   loadingBubble: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.botBubble,
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.border,
   },
   recipeButtonContainer: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.border,
   },
   inputContainer: {
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: colors.border,
     gap: 12,
   },
   input: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 100,
-    color: '#212121',
+    color: colors.textPrimary,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#E0E0E0',
+    backgroundColor: colors.border,
   },
 });
 

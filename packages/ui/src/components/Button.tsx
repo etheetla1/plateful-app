@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { allColors as colors } from '@plateful/shared';
 
 interface ButtonProps {
   title: string;
@@ -17,9 +18,9 @@ export function Button({
   loading = false 
 }: ButtonProps) {
   const getActivityIndicatorColor = () => {
-    if (variant === 'primary') return '#fff';
-    if (variant === 'secondary') return '#fff';
-    return '#64B5F6';
+    if (variant === 'primary') return colors.surface;
+    if (variant === 'secondary') return colors.textPrimary;
+    return colors.accent;
   };
 
   return (
@@ -70,10 +71,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primary: {
-    backgroundColor: '#FF9800',
+    backgroundColor: colors.primary,
   },
   secondary: {
-    backgroundColor: '#64B5F6',
+    backgroundColor: colors.secondary,
   },
   outline: {
     backgroundColor: 'transparent',
@@ -85,14 +86,14 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    color: '#fff',
+    color: colors.surface,
     fontSize: 16,
     fontWeight: '600',
   },
   secondaryText: {
-    color: '#fff',
+    color: colors.textPrimary,
   },
   outlineText: {
-    color: '#64B5F6',
+    color: colors.accent,
   },
 });

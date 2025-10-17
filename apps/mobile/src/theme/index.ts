@@ -152,14 +152,14 @@ const defaultSpacing = {
 };
 
 export const palette = {
-  background: pickColor('dashboard-home', '#ffffff'),
-  surface: pickColor('rectangle-18', '#faead1'),
-  primary: pickColor('rectangle-7', '#f29303'),
-  accent: pickColor('rectangle-19', '#f29303'),
-  textPrimary: pickColor('welcome-back-name', '#7a6a52'),
-  textSecondary: pickColor('search-for-recipes', '#cdc3b4'),
-  textOnPrimary: pickColor('vector', '#ffffff'),
-  border: pickColor('rectangle-26', '#e0d7c8'),
+  background: pickColor('dashboard-home', '#F8F9F7'), // Neutral soft gray
+  surface: pickColor('rectangle-18', '#FFFFFF'), // White
+  primary: pickColor('rectangle-7', '#73d9c1'), // Mint
+  accent: pickColor('rectangle-19', '#4a8d8f'), // Teal
+  textPrimary: pickColor('welcome-back-name', '#2F2F2F'), // Dark neutral
+  textSecondary: pickColor('search-for-recipes', '#666666'), // Medium gray
+  textOnPrimary: pickColor('vector', '#FFFFFF'), // White
+  border: pickColor('rectangle-26', '#E0E0E0'), // Light gray
 };
 
 export const textVariants: Record<'headline' | 'sectionTitle' | 'body' | 'caption', TextStyle> = {
