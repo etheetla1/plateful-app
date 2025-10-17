@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
+    "@azure/cosmos": "^4.0.0",
     "@hono/node-server": "^1.11.1",
     "@plateful/shared": "workspace:*",
     "axios": "^1.12.2",

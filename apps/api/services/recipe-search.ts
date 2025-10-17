@@ -1,0 +1,83 @@
+import Anthropic from '@anthropic-ai/sdk';
+import type { RecipeSearchResult } from '@plateful/shared';
+
+/**
+ * Search for a recipe using Anthropic's web search
+ */
+export async function searchRecipe(searchQuery: string): Promise<RecipeSearchResult> {
+  // Initialize client with current environment variables
+  const client = new Anthropic({ 
+    apiKey: process.env.ANTHROPIC_API_KEY 
+  });
+
+  console.log(`Searching for recipe: ${searchQuery}`);
+
+  const response = await (client.messages.create as any)({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 2048,
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search"
+      }
+    ],
+    messages: [{
+      role: "user",
+      content: `Search for: ${searchQuery}
+
+Find the best recipe page URL. Prefer reputable recipe sites like:
+- food52.com
+- seriouseats.com
+- bonappetit.com
+- epicurious.com
+- allrecipes.com
+- thespruceeats.com
+
+Return ONLY a JSON object with this structure:
+{
+  "title": "Recipe title",
+  "url": "Full URL to the recipe page",
+  "snippet": "Brief description"
+}
+
+Important: Return ONLY the JSON object, no other text.`
+    }]
+  });
+
+  // Extract the response text
+  let resultText = '';
+  for (const block of response.content) {
+    if (block.type === 'text') {
+      resultText += block.text;
+    }
+  }
+
+  try {
+    // Remove markdown code blocks if present
+    const cleanedText = resultText.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Try to parse as JSON first
+    const result: RecipeSearchResult = JSON.parse(cleanedText);
+    
+    if (!result.url || !result.title) {
+      throw new Error('Invalid search result format');
+    }
+
+    return result;
+  } catch (parseError) {
+    // Fallback: Try to extract URL from text
+    console.warn('Failed to parse search result as JSON, attempting URL extraction');
+    
+    const urlMatch = resultText.match(/https?:\/\/[^\s<>"{}|\\^`[\]]+/);
+    if (urlMatch) {
+      return {
+        title: searchQuery,
+        url: urlMatch[0],
+        snippet: 'Recipe found via web search'
+      };
+    }
+
+    throw new Error('No recipe URL found in search results');
+  }
+}
+

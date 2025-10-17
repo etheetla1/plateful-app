@@ -5,9 +5,18 @@ import Anthropic from '@anthropic-ai/sdk';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { initCosmosDB, isCosmosAvailable } from './lib/cosmos';
+
+// Import API routes
+import chatRoutes from './api/chat';
+import mockChatRoutes from './api/mock-chat';
+import generateRecipeRoutes from './api/generate-recipe';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Cosmos DB
+initCosmosDB();
 
 const app = new Hono();
 
@@ -17,6 +26,17 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// Mount API routes - use mock chat if Cosmos DB is not configured
+if (isCosmosAvailable()) {
+  console.log('✅ Using real Cosmos DB chat routes');
+  app.route('/api/chat', chatRoutes);
+} else {
+  console.log('🎭 Cosmos DB not configured. Using mock chat routes for development.');
+  app.route('/api/chat', mockChatRoutes);
+}
+
+app.route('/api/generate-recipe', generateRecipeRoutes);
 
 // Initialize Anthropic client
 const client = new Anthropic({ 
