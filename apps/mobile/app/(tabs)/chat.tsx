@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@plateful/ui';
@@ -31,11 +32,42 @@ export default function ChatScreen() {
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
   const [currentIntent, setCurrentIntent] = useState<IntentExtractionResult | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const sparkleAnim1 = useRef(new Animated.Value(0)).current;
+  const sparkleAnim2 = useRef(new Animated.Value(0)).current;
+  const sparkleAnim3 = useRef(new Animated.Value(0)).current;
 
   // Initialize conversation
   useEffect(() => {
     startNewConversation();
   }, []);
+
+  // Sparkle animation effect
+  useEffect(() => {
+    if (currentIntent && currentIntent.certaintyLevel !== 'low') {
+      const createSparkleAnimation = (animValue: Animated.Value, delay: number) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(animValue, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+            Animated.timing(animValue, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+            Animated.delay(1000),
+          ])
+        );
+      };
+
+      createSparkleAnimation(sparkleAnim1, 0).start();
+      createSparkleAnimation(sparkleAnim2, 200).start();
+      createSparkleAnimation(sparkleAnim3, 400).start();
+    }
+  }, [currentIntent?.certaintyLevel]);
 
   const startNewConversation = async () => {
     try {
@@ -274,12 +306,13 @@ export default function ChatScreen() {
 
   const getButtonText = () => {
     if (generatingRecipe) return "Generating Recipe...";
-    if (!currentIntent) return "Find Recipe";
+    if (!currentIntent) return "✨ Find Recipe";
     
-    // Based on latest intent certainty
-    if (currentIntent.certaintyLevel === 'low') return "Surprise Me";
-    if (currentIntent.certaintyLevel === 'medium') return "Find Recipe";
-    return "Find Recipe"; // high certainty
+    // Low confidence = broad category = random/surprise
+    if (currentIntent.certaintyLevel === 'low') return "🎲 Surprise Me";
+    
+    // Medium/High confidence = specific dish = precise search
+    return "✨ Find Recipe";
   };
 
   return (
@@ -349,15 +382,66 @@ export default function ChatScreen() {
         )}
       </ScrollView>
 
-      {messages.length > 2 && currentIntent && currentIntent.status !== 'kitchen_utility' && (
+      {messages.length > 2 && currentIntent && 
+       currentIntent.status !== 'kitchen_utility' && 
+       currentIntent.status !== 'off_topic' && (
         <View style={styles.recipeButtonContainer}>
           <Button
             title={getButtonText()}
             onPress={generateRecipe}
             loading={generatingRecipe}
-            variant="primary"
+            variant={currentIntent?.certaintyLevel !== 'low' ? 'gold' : 'primary'}
             disabled={generatingRecipe}
           />
+          {currentIntent.certaintyLevel !== 'low' && (
+            <View style={styles.sparkleContainer}>
+              <Animated.View
+                style={[
+                  styles.sparkleDot,
+                  styles.sparkle1,
+                  {
+                    opacity: sparkleAnim1,
+                    transform: [{
+                      scale: sparkleAnim1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 1.2],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.sparkleDot,
+                  styles.sparkle2,
+                  {
+                    opacity: sparkleAnim2,
+                    transform: [{
+                      scale: sparkleAnim2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 1.2],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.sparkleDot,
+                  styles.sparkle3,
+                  {
+                    opacity: sparkleAnim3,
+                    transform: [{
+                      scale: sparkleAnim3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 1.2],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            </View>
+          )}
         </View>
       )}
 
@@ -425,6 +509,34 @@ const styles = StyleSheet.create({
   intentText: {
     fontSize: 14,
     color: colors.textPrimary,
+  },
+  sparkleContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sparkleDot: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 2,
+  },
+  sparkle1: {
+    top: '30%',
+    left: '25%',
+  },
+  sparkle2: {
+    top: '60%',
+    right: '30%',
+  },
+  sparkle3: {
+    top: '20%',
+    right: '20%',
   },
   messagesContainer: {
     flex: 1,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '@plateful/shared';
@@ -190,7 +191,10 @@ export default function RecipesScreen() {
           )}
 
           {selectedRecipe.recipeData.sourceUrl && (
-            <TouchableOpacity style={styles.sourceButton}>
+            <TouchableOpacity 
+              style={styles.sourceButton}
+              onPress={() => Linking.openURL(selectedRecipe.recipeData.sourceUrl)}
+            >
               <Ionicons name="link" size={16} color="#007AFF" />
               <Text style={styles.sourceButtonText}>View Original Recipe</Text>
               <Ionicons name="chevron-forward" size={16} color="#007AFF" />

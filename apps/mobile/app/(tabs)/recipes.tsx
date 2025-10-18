@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
+  Linking,
 } from 'react-native';
 import { Button, Input } from '@plateful/ui';
 import { Ionicons } from '@expo/vector-icons';
@@ -152,8 +153,7 @@ export default function Recipes() {
               case 'source':
                 return (
                   <TouchableOpacity key={index} onPress={() => {
-                    // In a real app, you'd open the URL
-                    Alert.alert('Source', `Visit: ${element.url}`);
+                    Linking.openURL(element.url);
                   }}>
                     <Text style={styles.source}>
                       {element.text}
@@ -182,13 +182,7 @@ export default function Recipes() {
             <View style={styles.sourceSection}>
               <TouchableOpacity 
                 onPress={() => {
-                  Alert.alert('Visit Recipe', `Open ${sourceUrl} in your browser?`, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Open', onPress: () => {
-                      // In a real app, you'd use Linking.openURL(sourceUrl)
-                      console.log('Would open:', sourceUrl);
-                    }}
-                  ]);
+                  Linking.openURL(sourceUrl);
                 }}
                 style={styles.sourceButton}
               >

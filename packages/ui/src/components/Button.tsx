@@ -5,7 +5,7 @@ import { allColors as colors } from '@plateful/shared';
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
+  variant?: 'primary' | 'secondary' | 'outline' | 'gold';
   disabled?: boolean;
   loading?: boolean;
 }
@@ -20,6 +20,7 @@ export function Button({
   const getActivityIndicatorColor = () => {
     if (variant === 'primary') return colors.surface;
     if (variant === 'secondary') return colors.textPrimary;
+    if (variant === 'gold') return colors.surface;
     return colors.accent;
   };
 
@@ -30,6 +31,7 @@ export function Button({
         variant === 'primary' && styles.primary,
         variant === 'secondary' && styles.secondary,
         variant === 'outline' && styles.outline,
+        variant === 'gold' && styles.gold,
         disabled && styles.disabled,
       ]}
       onPress={onPress}
@@ -44,6 +46,7 @@ export function Button({
             styles.text,
             variant === 'secondary' && styles.secondaryText,
             variant === 'outline' && styles.outlineText,
+            variant === 'gold' && styles.goldText,
           ]}
         >
           {title}
@@ -82,6 +85,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0,
     elevation: 0,
   },
+  gold: {
+    backgroundColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOpacity: 0.3,
+    elevation: 5,
+  },
   disabled: {
     opacity: 0.5,
   },
@@ -95,5 +104,9 @@ const styles = StyleSheet.create({
   },
   outlineText: {
     color: colors.accent,
+  },
+  goldText: {
+    color: '#1a1a1a',
+    fontWeight: '700',
   },
 });

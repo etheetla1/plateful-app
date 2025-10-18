@@ -24,7 +24,7 @@ Please respond with a JSON object in this exact format:
 {
   "dish": "Specific dish name OR broad category OR 'Kitchen utility question' OR 'Not food-related'",
   "searchQuery": "detailed search query for finding recipe OR 'Not applicable - kitchen utility' OR 'Not applicable - off-topic conversation'",
-  "status": "off_topic" OR "kitchen_utility" OR "broad_category" OR "specific_dish" OR "fully_refined",
+  "status": "off_topic" OR "kitchen_utility" OR "broad_category" OR "dish_type" OR "specific_dish" OR "fully_refined",
   "certaintyLevel": "low" OR "medium" OR "high",
   "explanation": "Short summary with core details like 'Chinese food with onions, noodles' or 'Pan-seared fish, spicy'"
 }
@@ -32,14 +32,21 @@ Please respond with a JSON object in this exact format:
 INTENT LEVELS:
 - off_topic: Conversation is NOT about cooking, food, recipes, or kitchen-related topics (cement, sports, weather, conversions, etc.)
 - kitchen_utility: Kitchen questions without recipe intent (unit conversions, technique explanations, "what is braising?")
-- broad_category: Cuisine type, flavor profile, or cooking method for recipes (Chinese food, Italian, spicy, braising recipes)
+- broad_category: Cuisine type, flavor profile (Chinese food, Italian, spicy, comfort food, vegetarian)
+- dish_type: General dish type without specific recipe name (Thai chicken stir-fry, Chinese noodles, pasta dishes)
 - specific_dish: User mentioned a named dish (Kung Pao Chicken, lasagna, cheeseburger, pad thai)
 - fully_refined: User mentioned a specific dish AND preferences/details (spicy Kung Pao, medium-rare burger, gluten-free pasta)
 
 CERTAINTY LEVELS:
-- low: broad_category status
+- low: broad_category OR dish_type status
 - medium: specific_dish status  
 - high: fully_refined status
+
+IMPORTANT: Be CONSERVATIVE with status assignment:
+- Only set specific_dish when user explicitly names a dish (like "Kung Pao Chicken")
+- Only set fully_refined when user names a dish AND specifies preferences (like "spicy Kung Pao Chicken")
+- If user is still exploring options or answering questions, keep it as broad_category
+- Don't jump to higher levels just because AI is asking clarifying questions
 
 KITCHEN-RELATED TOPICS (ALLOWED):
 - Cooking methods: braise, sauté, grill, bake, etc.
@@ -62,6 +69,14 @@ EXPLANATION EXAMPLES:
 - "Chinese food with onions, noodles" (when ingredients mentioned)
 - "Pan-seared fish, spicy" (when preferences specified)
 - "Kitchen utility question" (for conversions, techniques)
+
+STATUS EXAMPLES:
+- "Thai food" → broad_category (even if AI asks questions)
+- "Thai chicken stir-fry" → dish_type (general dish type, not named recipe)
+- "I want Pad Thai" → specific_dish (named recipe)
+- "Spicy Pad Thai with extra peanuts" → fully_refined (named recipe + preferences)
+- "What is braising?" → kitchen_utility
+- "Tell me about cement" → off_topic
 
 IMPORTANT RULES:
 - If user mentions a dish and answers questions about it, they HAVE decided on that dish
@@ -117,7 +132,7 @@ IMPORTANT RULES:
             : 'specific_dish'
       ),
       certaintyLevel: result.certaintyLevel || (
-        result.status === 'broad_category' ? 'low' :
+        result.status === 'broad_category' || result.status === 'dish_type' ? 'low' :
         result.status === 'specific_dish' ? 'medium' :
         result.status === 'fully_refined' ? 'high' : 'low'
       ),
