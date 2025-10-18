@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '@plateful/ui';
 import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
+import type { IntentExtractionResult } from '@plateful/shared';
 
 const API_BASE = 'http://10.0.2.2:3000'; // Android emulator host IP
 
@@ -28,6 +29,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(false);
   const [generatingRecipe, setGeneratingRecipe] = useState(false);
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
+  const [currentIntent, setCurrentIntent] = useState<IntentExtractionResult | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Initialize conversation
@@ -37,6 +39,9 @@ export default function ChatScreen() {
 
   const startNewConversation = async () => {
     try {
+      // Clear current intent when starting new conversation
+      setCurrentIntent(null);
+      
       const response = await fetch(`${API_BASE}/api/chat/conversation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -148,6 +153,9 @@ export default function ChatScreen() {
       // Get AI response
       const aiResponse = await getAIResponse([...messages, userData.message]);
       await sendAssistantMessage(conversationID, aiResponse);
+      
+      // Extract current intent after conversation update
+      setTimeout(() => extractCurrentIntent(), 500);
     } catch (error) {
       console.error('❌ Failed to send message:', error);
       Alert.alert('Error', 'Failed to send message. Please try again.');
@@ -186,6 +194,29 @@ export default function ChatScreen() {
     }
   };
 
+  const extractCurrentIntent = async () => {
+    if (!conversationID || messages.length === 0) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/extract-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationID,
+          userID: MOCK_USER_ID,
+        }),
+      });
+
+      if (response.ok) {
+        const intent = await response.json();
+        setCurrentIntent(intent);
+        console.log('🧠 Current intent updated:', intent);
+      }
+    } catch (error) {
+      console.error('❌ Failed to extract intent:', error);
+    }
+  };
+
   const generateRecipe = async () => {
     if (!conversationID) return;
 
@@ -206,11 +237,11 @@ export default function ChatScreen() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         
-        // Handle the case where user hasn't decided on a specific dish yet
-        if (response.status === 400 && errorData.error === 'User hasn\'t decided on a specific dish yet') {
+        // Handle off-topic conversations
+        if (response.status === 400 && errorData.error === 'Off-topic conversation') {
           Alert.alert(
-            'Keep Chatting!',
-            'It looks like you\'re still exploring options. Continue the conversation to help decide on a specific dish, then try generating a recipe again.',
+            'Not About Cooking',
+            'Let\'s talk about food! Ask me about a dish or cuisine you\'d like to cook.',
             [{ text: 'OK' }]
           );
           return;
@@ -241,6 +272,16 @@ export default function ChatScreen() {
     }
   };
 
+  const getButtonText = () => {
+    if (generatingRecipe) return "Generating Recipe...";
+    if (!currentIntent) return "Find Recipe";
+    
+    // Based on latest intent certainty
+    if (currentIntent.certaintyLevel === 'low') return "Surprise Me";
+    if (currentIntent.certaintyLevel === 'medium') return "Find Recipe";
+    return "Find Recipe"; // high certainty
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -256,6 +297,15 @@ export default function ChatScreen() {
           <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
+
+      {/* Sticky Intent Banner */}
+      {currentIntent && currentIntent.status !== 'off_topic' && currentIntent.status !== 'kitchen_utility' && (
+        <View style={styles.intentBanner}>
+          <Text style={styles.intentText}>
+            💭 {currentIntent.explanation || `I'm thinking you want ${currentIntent.dish}`}
+          </Text>
+        </View>
+      )}
 
       <ScrollView
         ref={scrollViewRef}
@@ -299,10 +349,10 @@ export default function ChatScreen() {
         )}
       </ScrollView>
 
-      {messages.length > 2 && (
+      {messages.length > 2 && currentIntent && currentIntent.status !== 'kitchen_utility' && (
         <View style={styles.recipeButtonContainer}>
           <Button
-            title={generatingRecipe ? "Generating Recipe..." : "Find Recipe"}
+            title={getButtonText()}
             onPress={generateRecipe}
             loading={generatingRecipe}
             variant="primary"
@@ -364,6 +414,17 @@ const styles = StyleSheet.create({
   },
   newChatButton: {
     padding: 4,
+  },
+  intentBanner: {
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  intentText: {
+    fontSize: 14,
+    color: colors.textPrimary,
   },
   messagesContainer: {
     flex: 1,

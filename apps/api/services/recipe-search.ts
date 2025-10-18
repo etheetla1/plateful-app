@@ -33,7 +33,9 @@ export async function searchRecipe(searchQuery: string): Promise<RecipeSearchRes
       role: "user",
       content: `Search for: ${searchQuery}
 
-Find the best recipe page URL from any reliable cooking website.
+Find a specific recipe page URL (not a homepage or category page) from any reliable cooking website.
+
+IMPORTANT: Return a URL to a specific recipe page that contains ingredients and instructions, NOT a homepage or category listing page.
 
 Avoid these problematic sites that block scrapers:
 - thekitchn.com
@@ -44,7 +46,7 @@ Avoid these problematic sites that block scrapers:
 Return ONLY a JSON object with this structure:
 {
   "title": "Recipe title",
-  "url": "Full URL to the recipe page",
+  "url": "Full URL to the specific recipe page (not homepage)",
   "snippet": "Brief description"
 }
 

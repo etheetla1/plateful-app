@@ -11,6 +11,7 @@ import { initCosmosDB, isCosmosAvailable } from './lib/cosmos';
 import chatRoutes from './api/chat';
 import mockChatRoutes from './api/mock-chat';
 import generateRecipeRoutes from './api/generate-recipe';
+import extractIntentRoutes from './api/extract-intent';
 
 // Load environment variables
 dotenv.config();
@@ -37,6 +38,7 @@ if (isCosmosAvailable()) {
 }
 
 app.route('/api/generate-recipe', generateRecipeRoutes);
+app.route('/api/extract-intent', extractIntentRoutes);
 
 // Initialize Anthropic client
 const client = new Anthropic({ 
@@ -203,9 +205,12 @@ app.get('/health', (c) => {
 });
 
 const port = 3000;
+const hostname = '0.0.0.0'; // Listen on all interfaces for Android emulator access
 console.log(`Server running on http://localhost:${port}`);
+console.log(`Also accessible from Android emulator at http://10.0.2.2:${port}`);
 
 serve({
   fetch: app.fetch,
-  port
+  port,
+  hostname
 });

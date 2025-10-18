@@ -36,7 +36,9 @@ export interface RecipeGenerateRequest {
 export interface IntentExtractionResult {
   dish: string;
   searchQuery: string;
-  status: 'decided' | 'still_deciding';
+  status: 'off_topic' | 'kitchen_utility' | 'broad_category' | 'specific_dish' | 'fully_refined';
+  certaintyLevel: 'low' | 'medium' | 'high';
+  explanation?: string; // What the AI currently understands
 }
 
 export interface RecipeSearchResult {

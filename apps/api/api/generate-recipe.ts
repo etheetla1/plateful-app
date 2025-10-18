@@ -59,15 +59,18 @@ app.post('/', async (c) => {
     const intent = await extractIntent(messages);
     console.log(`✅ Intent extracted: ${intent.dish} (status: ${intent.status})`);
 
-    // Check if user has decided on a specific dish
-    if (intent.status === 'still_deciding') {
-      console.log(`⏳ User hasn't decided on a specific dish yet`);
+    // Check if conversation is off-topic
+    if (intent.status === 'off_topic') {
+      console.log(`🚫 Off-topic conversation detected`);
       return c.json({ 
-        error: 'User hasn\'t decided on a specific dish yet',
-        message: 'Please continue the conversation to help the user decide on a specific dish before generating a recipe.',
+        error: 'Off-topic conversation',
+        message: 'This conversation isn\'t about cooking or recipes. Please ask about a dish or cuisine you\'d like to make.',
         intent
       }, 400);
     }
+
+    // All other statuses (broad_category, specific_dish, fully_refined) allow search
+    console.log(`✅ Intent status: ${intent.status} - proceeding with recipe generation`);
 
     // Update conversation with extracted intent
     const conversationContainer = getContainer('chatConversations');

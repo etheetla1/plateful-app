@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "build": "expo export",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .expo"
+    "clean": "rimraf .expo"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
@@ -38,6 +38,7 @@
   "devDependencies": {
     "@babel/core": "^7.23.6",
     "@types/react": "~19.1.17",
+    "rimraf": "^6.0.1",
     "typescript": "^5.3.3"
   },
   "private": true
