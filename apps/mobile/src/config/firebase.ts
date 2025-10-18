@@ -1,7 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, initializeAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Debug: Log environment variables (only in development)
 if (__DEV__) {
@@ -9,6 +8,9 @@ if (__DEV__) {
   console.log('API Key:', process.env.EXPO_PUBLIC_FIREBASE_API_KEY ? '✅ Present' : '❌ Missing');
   console.log('Project ID:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
   console.log('Auth Domain:', process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN);
+  console.log('Storage Bucket:', process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET);
+  console.log('Messaging Sender ID:', process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID);
+  console.log('App ID:', process.env.EXPO_PUBLIC_FIREBASE_APP_ID);
 }
 
 const firebaseConfig = {
@@ -54,18 +56,24 @@ try {
   console.warn('⚠️ Firestore initialization failed. Database features will be disabled.');
 }
 
-// Initialize Auth (React Native will use AsyncStorage by default)
+// Initialize Auth with basic configuration (persistence handled automatically)
 let auth: Auth;
 try {
   auth = initializeAuth(app);
   console.log('✅ Firebase Auth initialized successfully');
-} catch (error) {
-  // If already initialized, get existing instance
-  try {
-    auth = getAuth(app);
-    console.log('✅ Firebase Auth instance retrieved');
-  } catch (authError) {
-    console.error('❌ Firebase Auth initialization failed:', authError);
+} catch (error: any) {
+  console.error('❌ Firebase Auth initialization failed:', error);
+  
+  // Check if it's the "already initialized" error
+  if (error.code === 'auth/already-initialized') {
+    try {
+      auth = getAuth(app);
+      console.log('✅ Firebase Auth instance retrieved after already-initialized error');
+    } catch (retryError) {
+      console.error('❌ Failed to get auth instance after already-initialized error:', retryError);
+      auth = {} as Auth;
+    }
+  } else {
     console.warn('⚠️ Firebase Auth initialization failed. Authentication features will be disabled.');
     // Create a dummy auth to prevent undefined errors
     auth = {} as Auth;

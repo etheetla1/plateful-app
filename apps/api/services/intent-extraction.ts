@@ -15,23 +15,23 @@ export async function extractIntent(messages: ChatMessage[]): Promise<IntentExtr
     .map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
     .join('\n');
 
-  const prompt = `You are analyzing a conversation about food and meal planning. Based on the conversation below, extract:
-1. The specific dish the user has decided on
-2. A search query optimized for finding an authentic recipe online
+  const prompt = `You are analyzing a conversation about food and meal planning. Based on the conversation below, determine if the user has provided a specific dish name.
 
 Conversation:
 ${conversationText}
 
 Please respond with a JSON object in this exact format:
 {
-  "dish": "Exact dish name",
-  "searchQuery": "detailed search query for finding recipe"
+  "dish": "Specific dish name OR 'Not yet decided'",
+  "searchQuery": "detailed search query for finding recipe OR 'Unable to provide - user has not selected a specific dish'",
+  "status": "decided" OR "still_deciding"
 }
 
 IMPORTANT RULES:
-- The dish should be the specific meal the user decided on
-- The searchQuery should be detailed and optimized for finding authentic recipes
-- Include relevant descriptors (e.g., "authentic", "traditional", specific cuisine style)
+- If the user has mentioned a specific dish name (like "beef stroganoff", "pasta", "chicken curry", etc.), set dish to that exact name and status to "decided"
+- Only set status to "still_deciding" if the user is genuinely exploring multiple options without naming a specific dish
+- The AI asking follow-up questions does NOT mean the user hasn't decided - they may just want to refine the recipe
+- The searchQuery should be detailed and optimized for finding authentic recipes when a specific dish is mentioned
 - Return ONLY the JSON object, no other text`;
 
   const response = await client.messages.create({
@@ -55,13 +55,20 @@ IMPORTANT RULES:
   try {
     // Remove markdown code blocks if present
     const cleanedText = resultText.replace(/```json\n?|\n?```/g, '').trim();
-    const result: IntentExtractionResult = JSON.parse(cleanedText);
+    const result: any = JSON.parse(cleanedText);
     
     if (!result.dish || !result.searchQuery) {
       throw new Error('Invalid intent extraction result');
     }
 
-    return result;
+    // Handle both old and new format - be more permissive
+    const intentResult: IntentExtractionResult = {
+      dish: result.dish,
+      searchQuery: result.searchQuery,
+      status: result.status || (result.dish === 'Not yet decided' || result.dish === 'Unable to provide - user has not selected a specific dish' ? 'still_deciding' : 'decided')
+    };
+
+    return intentResult;
   } catch (error) {
     console.error('Failed to parse intent extraction result:', resultText);
     throw new Error('Failed to extract intent from conversation');

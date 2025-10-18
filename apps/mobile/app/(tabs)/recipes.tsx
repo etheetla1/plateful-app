@@ -79,7 +79,7 @@ export default function Recipes() {
 
     try {
       // Call the API server (which has your simple-recipe.ts logic)
-      const response = await fetch('http://localhost:3000/api/recipe', {
+      const response = await fetch('http://10.0.2.2:3000/api/recipe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

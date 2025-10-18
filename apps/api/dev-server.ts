@@ -22,7 +22,7 @@ const app = new Hono();
 
 // Add CORS middleware
 app.use('*', cors({
-  origin: ['http://localhost:8081', 'http://localhost:8083'],
+  origin: ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083', 'http://10.0.2.2:3000'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));

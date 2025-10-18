@@ -18,20 +18,28 @@ export async function searchRecipe(searchQuery: string): Promise<RecipeSearchRes
     tools: [
       {
         type: "web_search_20250305",
-        name: "web_search"
+        name: "web_search",
+        // Block problematic domains that return 403 errors
+        blocked_domains: [
+          "thekitchn.com",
+          "foodnetwork.com",
+          "tasty.co",
+          "buzzfeed.com"
+        ],
+        // Prefer reliable recipe sites
       }
     ],
     messages: [{
       role: "user",
       content: `Search for: ${searchQuery}
 
-Find the best recipe page URL. Prefer reputable recipe sites like:
-- food52.com
-- seriouseats.com
-- bonappetit.com
-- epicurious.com
-- allrecipes.com
-- thespruceeats.com
+Find the best recipe page URL from any reliable cooking website.
+
+Avoid these problematic sites that block scrapers:
+- thekitchn.com
+- foodnetwork.com
+- tasty.co
+- buzzfeed.com
 
 Return ONLY a JSON object with this structure:
 {

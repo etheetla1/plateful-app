@@ -36,6 +36,7 @@ export interface RecipeGenerateRequest {
 export interface IntentExtractionResult {
   dish: string;
   searchQuery: string;
+  status: 'decided' | 'still_deciding';
 }
 
 export interface RecipeSearchResult {

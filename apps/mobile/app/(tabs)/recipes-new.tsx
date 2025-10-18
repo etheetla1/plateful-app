@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '@plateful/shared';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'http://10.0.2.2:3000'; // Android emulator host IP
 const MOCK_USER_ID = 'user-dev-001';
 
 export default function RecipesScreen() {

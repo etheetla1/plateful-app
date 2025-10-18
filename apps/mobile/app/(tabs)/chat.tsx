@@ -16,7 +16,7 @@ import { Button } from '@plateful/ui';
 import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 
-const API_BASE = 'http://localhost:3000';
+const API_BASE = 'http://10.0.2.2:3000'; // Android emulator host IP
 
 // Mock user ID for development
 const MOCK_USER_ID = 'user-dev-001';
@@ -204,6 +204,18 @@ export default function ChatScreen() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
+        // Handle the case where user hasn't decided on a specific dish yet
+        if (response.status === 400 && errorData.error === 'User hasn\'t decided on a specific dish yet') {
+          Alert.alert(
+            'Keep Chatting!',
+            'It looks like you\'re still exploring options. Continue the conversation to help decide on a specific dish, then try generating a recipe again.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+        
         throw new Error(`Failed to generate recipe: ${response.statusText}`);
       }
 

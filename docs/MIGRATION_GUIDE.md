@@ -277,7 +277,7 @@ If issues occur, quick rollback:
    git checkout HEAD -- apps/mobile/app/(tabs)/recipes.tsx
    ```
 
-4. **Restart app**: `pnpm start --clear`
+4. **Restart app**: `npm run start -- --clear`
 
 ## Monitoring
 

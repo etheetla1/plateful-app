@@ -2,10 +2,16 @@
 
 A modern full-stack grocery management app built with Expo React Native, Firebase, and Vercel.
 
+🚨 **IMPORTANT: Package Manager Requirement** 🚨
+- **MUST use npm 9.0+** - This project uses npm workspaces
+- **DO NOT use pnpm, yarn, or other package managers**
+- Using other package managers will cause build failures and dependency issues
+- All commands in this documentation use npm
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
 [![Expo SDK](https://img.shields.io/badge/Expo-54.0-000020.svg)](https://expo.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-10.7-orange)](https://firebase.google.com/)
-[![pnpm](https://img.shields.io/badge/pnpm-8.15-yellow)](https://pnpm.io/)
+[![npm](https://img.shields.io/badge/npm-9.0+-red)](https://npmjs.com/)
 
 ---
 
@@ -38,7 +44,7 @@ A modern full-stack grocery management app built with Expo React Native, Firebas
 | **Routing** | Expo Router (file-based) |
 | **Backend** | Firebase (Auth + Firestore + Storage) |
 | **API** | Vercel Edge Functions + Hono |
-| **Package Manager** | pnpm 8.15 (workspaces) |
+| **Package Manager** | npm 9.0+ (workspaces) |
 | **Build Tool** | Turbo (monorepo orchestration) |
 
 ### Monorepo Structure
@@ -130,10 +136,15 @@ Mobile → HTTP Request → Vercel Function → Business Logic → Response
 | Tool | Minimum Version | Installation |
 |------|----------------|--------------|
 | **Node.js** | 18.0.0+ | [nodejs.org](https://nodejs.org/) |
-| **pnpm** | 8.0.0+ | `npm install -g pnpm` |
+| **npm** | 9.0.0+ | Comes with Node.js (verify with `npm --version`) |
 | **Expo CLI** | Latest | Installed automatically with dependencies |
 | **Firebase CLI** | 12.0.0+ | `npm install -g firebase-tools` |
 | **Vercel CLI** | Latest | `npm install -g vercel` (optional) |
+
+⚠️ **CRITICAL: Package Manager Requirement**
+- **MUST use npm** - Do NOT use pnpm, yarn, or other package managers
+- This project uses npm workspaces and npm-specific configurations
+- Using other package managers will cause build failures and dependency issues
 
 ### Platform-Specific Requirements
 
@@ -166,22 +177,33 @@ Mobile → HTTP Request → Vercel Function → Business Logic → Response
 git clone https://github.com/yourusername/plateful-app.git
 cd plateful-app
 
-# Install pnpm if not already installed
-npm install -g pnpm
+# Verify npm version (must be 9.0+)
+npm --version
 
 # Install all dependencies
-pnpm install
+npm install
 
 # Verify installation
-pnpm type-check  # Should complete without errors
+npm run type-check  # Should complete without errors
 ```
 
-⚠️ **Note:** If you encounter `EEXIST` errors with Corepack, run:
+⚠️ **Note:** If you encounter dependency issues, ensure you're using npm:
 ```bash
+# Verify you're using npm (not pnpm/yarn)
+npm --version
+
+# If you have pnpm installed, you can disable it
 corepack disable
-npm uninstall -g pnpm
-npm install -g pnpm@8.15.0
+
+# Clean install with npm
+rm -rf node_modules package-lock.json
+npm install
 ```
+
+**Project Configuration:**
+- The `.npmrc` file enforces npm usage and workspace configuration
+- This file ensures consistent package resolution across all environments
+- Do not modify or delete this file
 
 ### Step 2: Firebase Setup
 
@@ -316,13 +338,13 @@ firebase deploy --only firestore:rules,storage:rules
 cd ../..
 
 # Type check all packages
-pnpm type-check
+npm run type-check
 
 # Expected: No errors
 
 # Try running the mobile app
 cd apps/mobile
-pnpm dev
+npm run dev
 
 # Expected: Metro bundler starts, QR code displays
 ```
@@ -335,7 +357,7 @@ pnpm dev
 
 ```bash
 # From project root, run all apps simultaneously
-pnpm dev
+npm run dev
 
 # This starts:
 # - Mobile app (Metro bundler on port 8081)
@@ -348,16 +370,16 @@ pnpm dev
 
 ```bash
 # Option 1: From root
-pnpm mobile
+npm run mobile
 
 # Option 2: From apps/mobile
 cd apps/mobile
-pnpm dev
+npm run dev
 
 # For specific platforms:
-pnpm android    # Android emulator
-pnpm ios        # iOS simulator (macOS only)
-pnpm web        # Web browser
+npm run android    # Android emulator
+npm run ios        # iOS simulator (macOS only)
+npm run web        # Web browser
 ```
 
 **Using Development Build:**
@@ -372,11 +394,11 @@ npx expo run:android  # or npx expo run:ios
 
 ```bash
 # From root
-pnpm api
+npm run api
 
 # Or from apps/api
 cd apps/api
-pnpm dev
+npm run dev
 
 # API will be available at http://localhost:3000
 # Test: curl http://localhost:3000/api/health
@@ -386,7 +408,7 @@ pnpm dev
 
 1. **Start development server:**
    ```bash
-   pnpm dev
+   npm run dev
    ```
 
 2. **Make changes to code:**
@@ -395,12 +417,12 @@ pnpm dev
 
 3. **Type check:**
    ```bash
-   pnpm type-check
+   npm run type-check
    ```
 
 4. **Format code:**
    ```bash
-   pnpm format
+   npm run format
    ```
 
 5. **Commit changes:**
@@ -417,7 +439,7 @@ pnpm dev
 
 ```bash
 1. Install Expo Go app from App Store / Play Store
-2. Run: pnpm dev
+2. Run: npm run dev
 3. Scan QR code with camera (iOS) or Expo Go app (Android)
 ```
 
@@ -435,10 +457,10 @@ npx expo run:android  # or npx expo run:ios
 
 ```bash
 # Android
-pnpm android
+npm run android
 
 # iOS (macOS only)
-pnpm ios
+npm run ios
 ```
 
 ---
@@ -526,16 +548,15 @@ plateful/
 ├── .cursorrules                      # AI assistant instructions
 ├── .firebaserc                       # Firebase project config
 ├── .gitignore                        # Git ignore rules
-├── .npmrc                            # pnpm configuration
+├── .npmrc                            # npm configuration (enforces npm usage)
 ├── firebase.json                     # Firebase services config
 ├── firestore.rules                   # Firestore security rules
 ├── firestore.indexes.json            # Firestore indexes
 ├── storage.rules                     # Storage security rules
-├── package.json                      # Root package.json
-├── pnpm-lock.yaml                    # Dependency lock file
-├── pnpm-workspace.yaml               # Workspace configuration
-├── turbo.json                        # Turbo build configuration
-└── README.md                         # This file
+├── package-lock.json                  # Dependency lock file
+├── package.json                       # Root package.json
+├── turbo.json                         # Turbo build configuration
+└── README.md                          # This file
 ```
 
 ### Key Directories
@@ -586,7 +607,7 @@ plateful/
 
 #### **Developer Experience**
 - ✅ TypeScript throughout
-- ✅ pnpm workspaces (fast installs)
+- ✅ npm workspaces (fast installs)
 - ✅ Turbo for monorepo builds
 - ✅ Hot reload / Fast Refresh
 - ✅ Comprehensive documentation
@@ -719,8 +740,8 @@ Error: Cannot find module 'expo'
 # Clear cache and reinstall
 cd apps/mobile
 rm -rf node_modules .expo
-pnpm install
-pnpm start --clear
+npm install
+npm run start -- --clear
 ```
 
 #### **Issue 2: Firebase "Component Not Registered"**
@@ -800,27 +821,30 @@ cat apps/mobile/.env | grep EXPO_PUBLIC
 
 # 3. Restart Metro bundler
 # Press Ctrl+C, then:
-pnpm dev --clear
+npm run dev -- --clear
 
 # 4. For web, you may need to set in index.html or metro.config.js
 ```
 
-#### **Issue 6: pnpm EEXIST Errors**
+#### **Issue 6: Package Manager Conflicts**
 
 **Symptoms:**
 ```
 Error: EEXIST: file already exists
+Error: Cannot find module
 ```
 
 **Solution:**
 ```bash
-# Disable Corepack and reinstall pnpm
-corepack disable
-npm uninstall -g pnpm
-npm install -g pnpm@8.15.0
+# Ensure you're using npm (not pnpm/yarn)
+npm --version
 
-# Clean install
-pnpm install
+# If you have pnpm installed, disable it
+corepack disable
+
+# Clean install with npm
+rm -rf node_modules package-lock.json
+npm install
 ```
 
 #### **Issue 7: TypeScript Errors After Git Pull**
@@ -833,11 +857,11 @@ Type errors in node_modules
 **Solution:**
 ```bash
 # Clean and rebuild
-pnpm clean
+npm run clean
 rm -rf node_modules apps/*/node_modules packages/*/node_modules
-pnpm install
-pnpm build
-pnpm type-check
+npm install
+npm run build
+npm run type-check
 ```
 
 ### Debug Logging
@@ -857,7 +881,7 @@ if (__DEV__) {
 
 ```bash
 cd apps/mobile
-EXPO_DEBUG=true pnpm start
+EXPO_DEBUG=true npm run start
 ```
 
 #### **View Vercel Function Logs**
@@ -897,17 +921,17 @@ vercel logs [deployment-url]
 
 | Command | Description |
 |---------|-------------|
-| `pnpm dev` | Start all apps in development mode |
-| `pnpm build` | Build all apps for production |
-| `pnpm type-check` | Type check all packages |
-| `pnpm lint` | Lint all packages |
-| `pnpm format` | Format code with Prettier |
-| `pnpm clean` | Clean build artifacts |
-| `pnpm mobile` | Run mobile app only |
-| `pnpm api` | Run API only |
-| `pnpm figma:sync` | Sync Figma designs (tokens + assets) |
-| `pnpm figma:tokens` | Extract design tokens from Figma |
-| `pnpm figma:assets` | Download assets from Figma |
+| `npm run dev` | Start all apps in development mode |
+| `npm run build` | Build all apps for production |
+| `npm run type-check` | Type check all packages |
+| `npm run lint` | Lint all packages |
+| `npm run format` | Format code with Prettier |
+| `npm run clean` | Clean build artifacts |
+| `npm run mobile` | Run mobile app only |
+| `npm run api` | Run API only |
+| `npm run figma:sync` | Sync Figma designs (tokens + assets) |
+| `npm run figma:tokens` | Extract design tokens from Figma |
+| `npm run figma:assets` | Download assets from Figma |
 
 ### Mobile App Scripts
 
@@ -915,16 +939,16 @@ vercel logs [deployment-url]
 cd apps/mobile
 
 # Development
-pnpm dev          # Start with development build
-pnpm start        # Start Metro bundler
-pnpm android      # Run on Android
-pnpm ios          # Run on iOS
-pnpm web          # Run in web browser
+npm run dev          # Start with development build
+npm run start        # Start Metro bundler
+npm run android      # Run on Android
+npm run ios          # Run on iOS
+npm run web          # Run in web browser
 
 # Building
-pnpm build        # Export for production
-pnpm type-check   # Type check only
-pnpm clean        # Clean .expo directory
+npm run build        # Export for production
+npm run type-check   # Type check only
+npm run clean        # Clean .expo directory
 ```
 
 ### API Scripts
@@ -933,8 +957,8 @@ pnpm clean        # Clean .expo directory
 cd apps/api
 
 # Development
-pnpm dev          # Start Vercel dev server
-pnpm type-check   # Type check only
+npm run dev          # Start Vercel dev server
+npm run type-check   # Type check only
 ```
 
 ---
@@ -964,11 +988,11 @@ pnpm type-check   # Type check only
 - ⚠️ **Timeout** - Free tier: 10s max execution time
 - ⚠️ **Region** - Deployed to all edge locations (may affect Firebase region latency)
 
-### pnpm Workspaces
+### npm Workspaces
 
-- ⚠️ **Corepack conflicts** - May cause EEXIST errors (see troubleshooting)
+- ⚠️ **Package manager conflicts** - Must use npm, not pnpm/yarn
 - ⚠️ **Symlink issues** - Some tools don't follow symlinks correctly
-- ✅ **Workaround** - Use `pnpm --filter <package> <command>` for package-specific commands
+- ✅ **Workaround** - Use `npm run <command> --workspace=<package>` for package-specific commands
 
 ### Development Build
 
@@ -992,13 +1016,13 @@ pnpm type-check   # Type check only
 - ✅ TypeScript strict mode
 - ✅ ESLint + Prettier formatting
 - ✅ Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`
-- ✅ Type check before committing: `pnpm type-check`
+- ✅ Type check before committing: `npm run type-check`
 
 ### Pull Request Process
 
 1. Update documentation if needed
-2. Run `pnpm type-check` and fix any errors
-3. Run `pnpm format` to format code
+2. Run `npm run type-check` and fix any errors
+3. Run `npm run format` to format code
 4. Write clear commit messages
 5. Submit PR with description of changes
 

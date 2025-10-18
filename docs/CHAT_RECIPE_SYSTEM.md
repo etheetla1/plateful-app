@@ -214,7 +214,7 @@ If Cosmos DB is not configured, the chat features will be disabled but the basic
 
 ```bash
 # From project root
-pnpm install
+npm install
 ```
 
 ### 2. Set Up Cosmos DB (Azure)
@@ -248,7 +248,7 @@ pnpm install
 
 ```bash
 cd apps/api
-pnpm dev
+npm run dev
 ```
 
 Server runs on `http://localhost:3000`
@@ -257,7 +257,7 @@ Server runs on `http://localhost:3000`
 
 ```bash
 cd apps/mobile
-pnpm start
+npm run start
 ```
 
 ## Usage Flow

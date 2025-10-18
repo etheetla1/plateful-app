@@ -4,7 +4,7 @@
 
 ### Prerequisites
 - Node.js 18+
-- pnpm installed
+- npm 9.0+ (MUST use npm, not pnpm/yarn)
 - Anthropic API key
 - Azure Cosmos DB account (optional for testing)
 
@@ -12,7 +12,7 @@
 
 ```bash
 # From project root
-pnpm install
+npm install
 ```
 
 ### Step 2: Set Up Environment Variables
@@ -32,7 +32,7 @@ COSMOS_KEY=your-primary-key
 
 ```bash
 cd apps/api
-pnpm dev
+npm run dev
 ```
 
 Server runs on `http://localhost:3000`
@@ -41,7 +41,7 @@ Server runs on `http://localhost:3000`
 
 ```bash
 cd apps/mobile
-pnpm start
+npm run start
 ```
 
 ### Step 5: Test the Flow
@@ -76,8 +76,8 @@ See [CHAT_RECIPE_SYSTEM.md](./CHAT_RECIPE_SYSTEM.md) for complete details.
 ## 🐛 Troubleshooting
 
 ### API won't start
-- Check you have `pnpm` installed
-- Run `pnpm install` again
+- Check you have `npm` installed
+- Run `npm install` again
 - Verify `.env` file exists
 
 ### Chat features disabled

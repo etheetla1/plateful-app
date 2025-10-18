@@ -797,7 +797,7 @@ Use this checklist to ensure a clean, error-free backend setup.
 ### Pre-Setup Validation
 
 - [ ] Node.js >= 18.0.0 installed (`node --version`)
-- [ ] pnpm >= 8.0.0 installed (`pnpm --version`)
+- [ ] npm >= 9.0.0 installed (`npm --version`)
 - [ ] Firebase CLI installed (`firebase --version`)
 - [ ] Vercel CLI installed (`vercel --version`)
 - [ ] Git repository initialized
@@ -825,9 +825,9 @@ Use this checklist to ensure a clean, error-free backend setup.
 
 ### Application Setup
 
-- [ ] Dependencies installed (`pnpm install` from root)
-- [ ] Mobile app builds without errors (`cd apps/mobile && pnpm build`)
-- [ ] TypeScript compiles without errors (`pnpm type-check`)
+- [ ] Dependencies installed (`npm install` from root)
+- [ ] Mobile app builds without errors (`cd apps/mobile && npm run build`)
+- [ ] TypeScript compiles without errors (`npm run type-check`)
 - [ ] Firebase initialization logs show success
 - [ ] No duplicate Firebase app initialization errors
 

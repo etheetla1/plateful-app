@@ -57,7 +57,17 @@ app.post('/', async (c) => {
     // Step 2: Extract intent
     console.log(`🧠 Extracting intent from conversation...`);
     const intent = await extractIntent(messages);
-    console.log(`✅ Intent extracted: ${intent.dish}`);
+    console.log(`✅ Intent extracted: ${intent.dish} (status: ${intent.status})`);
+
+    // Check if user has decided on a specific dish
+    if (intent.status === 'still_deciding') {
+      console.log(`⏳ User hasn't decided on a specific dish yet`);
+      return c.json({ 
+        error: 'User hasn\'t decided on a specific dish yet',
+        message: 'Please continue the conversation to help the user decide on a specific dish before generating a recipe.',
+        intent
+      }, 400);
+    }
 
     // Update conversation with extracted intent
     const conversationContainer = getContainer('chatConversations');
