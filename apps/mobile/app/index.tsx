@@ -1,23 +1,31 @@
-import { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+// import { onAuthStateChange } from '../src/services/auth';
 
 export default function Index() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Delay navigation slightly to let Root Layout mount first
+    console.log('🚀 Index: Starting app (auth temporarily disabled)');
+    
+    // Temporarily skip auth for testing
     const timer = setTimeout(() => {
-      console.log('🚀 Index: Going to main app (no auth)');
+      console.log('✅ Skipping auth, going to tabs');
       router.replace('/(tabs)');
-    }, 100);
+      setIsLoading(false);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, []);
 
+  // Show loading screen
   return (
     <View style={styles.container}>
-      <Text style={styles.text}>Loading Plateful...</Text>
+      <ActivityIndicator size="large" color="#FF9800" />
+      <Text style={styles.loadingText}>Loading Plateful...</Text>
+      <Text style={styles.debugText}>Debug: Auth temporarily disabled</Text>
     </View>
   );
 }
@@ -28,9 +36,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
   },
-  text: {
+  loadingText: {
     fontSize: 18,
     color: '#212121',
+    marginTop: 16,
+  },
+  debugText: {
+    fontSize: 14,
+    color: '#757575',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });

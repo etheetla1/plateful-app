@@ -13,12 +13,14 @@
     "clean": "turbo run clean",
     "type-check": "turbo run type-check",
     "lint": "turbo run lint",
-    "mobile": "pnpm --filter mobile dev",
-    "api": "pnpm --filter api dev",
+    "mobile": "npm run dev --workspace=mobile",
+    "api": "npm run dev --workspace=api",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "figma:sync": "cd tools/figma && pnpm install && pnpm sync",
-    "figma:tokens": "cd tools/figma && pnpm install && pnpm extract-tokens",
-    "figma:assets": "cd tools/figma && pnpm install && pnpm download-assets"
+    "figma:sync": "cd tools/figma && npm install && npm run sync",
+    "figma:tokens": "cd tools/figma && npm install && npm run extract-tokens",
+    "figma:assets": "cd tools/figma && npm install && npm run download-assets",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "devDependencies": {
     "prettier": "^3.1.1",
@@ -27,7 +29,11 @@
   },
   "engines": {
     "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
+    "npm": ">=9.0.0"
   },
-  "packageManager": "pnpm@8.15.0"
+  "dependencies": {
+    "expo": "~54.0.13",
+    "react": "19.1.0",
+    "react-native": "0.81.4"
+  }
 }

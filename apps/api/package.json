@@ -6,20 +6,25 @@
     "dev": "tsx dev-server.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .vercel"
+    "clean": "rm -rf .vercel",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
     "@azure/cosmos": "^4.0.0",
     "@hono/node-server": "^1.11.1",
-    "@plateful/shared": "workspace:*",
+    "@plateful/shared": "*",
     "@types/uuid": "^11.0.0",
     "axios": "^1.12.2",
     "cheerio": "^1.1.2",
     "dotenv": "^16.3.1",
-    "hono": "^3.11.7",
+    "hono": "^4.0.0",
     "react-native-web": "^0.21.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "expo": "~54.0.13",
+    "react": "19.1.0",
+    "react-native": "0.81.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",

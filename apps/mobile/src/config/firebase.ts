@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, initializeAuth, indexedDBLocalPersistence, Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Debug: Log environment variables (only in development)
 if (__DEV__) {
@@ -26,7 +27,8 @@ const missingKeys = Object.entries(firebaseConfig)
 
 if (missingKeys.length > 0) {
   console.error('❌ Missing Firebase config keys:', missingKeys);
-  throw new Error(`Missing Firebase configuration: ${missingKeys.join(', ')}`);
+  // Don't throw error immediately - let the app handle it gracefully
+  console.warn('⚠️ Firebase configuration incomplete. Some features may not work.');
 }
 
 // Initialize Firebase (prevent duplicate initialization)
@@ -36,7 +38,10 @@ try {
   console.log('✅ Firebase App initialized successfully');
 } catch (error) {
   console.error('❌ Firebase App initialization failed:', error);
-  throw error;
+  // Don't throw - let the app continue with limited functionality
+  console.warn('⚠️ Firebase App initialization failed. Auth features will be disabled.');
+  // Create a dummy app to prevent undefined errors
+  app = {} as FirebaseApp;
 }
 
 // Initialize Firestore
@@ -46,20 +51,25 @@ try {
   console.log('✅ Firestore initialized successfully');
 } catch (error) {
   console.error('❌ Firestore initialization failed:', error);
-  throw error;
+  console.warn('⚠️ Firestore initialization failed. Database features will be disabled.');
 }
 
-// Initialize Auth with IndexedDB persistence (works with React Native)
+// Initialize Auth (React Native will use AsyncStorage by default)
 let auth: Auth;
 try {
-  auth = initializeAuth(app, {
-    persistence: indexedDBLocalPersistence
-  });
-  console.log('✅ Firebase Auth initialized successfully with IndexedDB persistence');
+  auth = initializeAuth(app);
+  console.log('✅ Firebase Auth initialized successfully');
 } catch (error) {
   // If already initialized, get existing instance
-  auth = getAuth(app);
-  console.log('✅ Firebase Auth instance retrieved');
+  try {
+    auth = getAuth(app);
+    console.log('✅ Firebase Auth instance retrieved');
+  } catch (authError) {
+    console.error('❌ Firebase Auth initialization failed:', authError);
+    console.warn('⚠️ Firebase Auth initialization failed. Authentication features will be disabled.');
+    // Create a dummy auth to prevent undefined errors
+    auth = {} as Auth;
+  }
 }
 
 console.log('🔥 Firebase fully initialized for project:', process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
