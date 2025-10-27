@@ -1,9 +1,32 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
+import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
 
 export default function Dashboard() {
-  const userName = 'Name';
+  const [userName, setUserName] = useState('Name');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Get current user immediately
+    const currentUser = getCurrentUser();
+    if (currentUser?.displayName) {
+      setUserName(currentUser.displayName);
+      setLoading(false);
+    }
+
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChange((user) => {
+      if (user?.displayName) {
+        setUserName(user.displayName);
+      } else {
+        setUserName('Name'); // Fallback if no display name
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
   const dayStreak = 2;
   const weekDays = [
     { day: 1, completed: true },

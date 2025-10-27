@@ -8,11 +8,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '@plateful/shared';
 
-const API_BASE = 'http://10.0.2.2:3000'; // Android emulator host IP
+// API endpoint - platform aware
+const API_BASE = Platform.select({
+  web: 'http://localhost:3000',
+  android: 'http://10.0.2.2:3000',
+  ios: 'http://localhost:3000',
+  default: 'http://localhost:3000',
+});
+
 const MOCK_USER_ID = 'user-dev-001';
 
 export default function RecipesScreen() {

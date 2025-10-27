@@ -1,5 +1,8 @@
 {
   "android": {
     "package": "com.anonymous.api"
+  },
+  "ios": {
+    "bundleIdentifier": "com.anonymous.api"
   }
 }

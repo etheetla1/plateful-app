@@ -7,6 +7,7 @@ import {
   Alert,
   TouchableOpacity,
   Linking,
+  Platform,
 } from 'react-native';
 import { Button, Input } from '@plateful/ui';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,7 +81,14 @@ export default function Recipes() {
 
     try {
       // Call the API server (which has your simple-recipe.ts logic)
-      const response = await fetch('http://10.0.2.2:3000/api/recipe', {
+      const apiUrl = Platform.select({
+        web: 'http://localhost:3000/api/recipe',
+        android: 'http://10.0.2.2:3000/api/recipe',
+        ios: 'http://localhost:3000/api/recipe',
+        default: 'http://localhost:3000/api/recipe',
+      });
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

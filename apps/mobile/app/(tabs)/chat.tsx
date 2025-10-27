@@ -18,7 +18,13 @@ import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 import type { IntentExtractionResult } from '@plateful/shared';
 
-const API_BASE = 'http://10.0.2.2:3000'; // Android emulator host IP
+// API endpoint - platform aware
+const API_BASE = Platform.select({
+  web: 'http://localhost:3000',      // Web browser
+  android: 'http://10.0.2.2:3000',   // Android emulator
+  ios: 'http://localhost:3000',      // iOS simulator
+  default: 'http://localhost:3000',
+});
 
 // Mock user ID for development
 const MOCK_USER_ID = 'user-dev-001';
