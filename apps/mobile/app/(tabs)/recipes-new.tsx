@@ -243,7 +243,7 @@ export default function RecipesScreen() {
               onPress={() => setSelectedRecipe(recipe)}
             >
               <View style={styles.recipeCardHeader}>
-                <Text style={styles.recipeCardTitle}>{recipe.recipeData.title}</Text>
+                <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.recipeData.title}</Text>
                 <TouchableOpacity onPress={() => toggleSaveRecipe(recipe)}>
                   <Ionicons
                     name={recipe.isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -260,12 +260,12 @@ export default function RecipesScreen() {
               <View style={styles.recipeCardMeta}>
                 <View style={styles.recipeCardMetaItem}>
                   <Ionicons name="people" size={14} color="#757575" />
-                  <Text style={styles.recipeCardMetaText}>{recipe.recipeData.portions}</Text>
+                  <Text style={styles.recipeCardMetaText} numberOfLines={1}>{recipe.recipeData.portions}</Text>
                 </View>
                 {recipe.recipeData.nutrition?.calories_per_portion && (
                   <View style={styles.recipeCardMetaItem}>
                     <Ionicons name="flame" size={14} color="#757575" />
-                    <Text style={styles.recipeCardMetaText}>
+                    <Text style={styles.recipeCardMetaText} numberOfLines={1}>
                       {recipe.recipeData.nutrition.calories_per_portion}
                     </Text>
                   </View>
@@ -355,6 +355,7 @@ const styles = StyleSheet.create({
     color: '#212121',
     flex: 1,
     marginRight: 8,
+    flexShrink: 1,
   },
   recipeCardDescription: {
     fontSize: 14,
@@ -370,10 +371,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flex: 1,
+    flexShrink: 1,
   },
   recipeCardMetaText: {
     fontSize: 12,
     color: '#757575',
+    flex: 1,
+    flexShrink: 1,
   },
   recipeDetailHeader: {
     flexDirection: 'row',
