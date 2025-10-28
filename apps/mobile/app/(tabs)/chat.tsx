@@ -20,10 +20,10 @@ import type { IntentExtractionResult } from '@plateful/shared';
 
 // API endpoint - platform aware
 const API_BASE = Platform.select({
-  web: 'http://localhost:3000',      // Web browser
-  android: 'http://10.0.2.2:3000',   // Android emulator
-  ios: 'http://localhost:3000',      // iOS simulator
-  default: 'http://localhost:3000',
+  web: 'http://localhost:3001',      // Web browser
+  android: 'http://10.0.2.2:3001',   // Android emulator
+  ios: 'http://localhost:3001',      // iOS simulator
+  default: 'http://localhost:3001',
 });
 
 // Mock user ID for development
@@ -324,8 +324,8 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={90}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
     >
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -350,9 +350,16 @@ export default function ChatScreen() {
         ref={scrollViewRef}
         style={styles.messagesContainer}
         contentContainerStyle={styles.messagesContent}
-        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+        onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: false })}
       >
-        {messages.map((message, index) => (
+        {messages.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={64} color={colors.textSecondary} />
+            <Text style={styles.emptyStateTitle}>Start a conversation</Text>
+            <Text style={styles.emptyStateText}>Ask me about any dish or cuisine you'd like to try!</Text>
+          </View>
+        ) : (
+          messages.map((message, index) => (
           <View
             key={message.id || index}
             style={[
@@ -366,7 +373,25 @@ export default function ChatScreen() {
                 message.role === 'user' ? styles.userText : styles.assistantText,
               ]}
             >
-              {message.content}
+              {message.content.split('\n').map((line, i) => {
+                // Parse markdown bold (**text**)
+                const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                return (
+                  <Text key={i}>
+                    {parts.map((part, j) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                        return (
+                          <Text key={j} style={{ fontWeight: 'bold' }}>
+                            {part.slice(2, -2)}
+                          </Text>
+                        );
+                      }
+                      return <Text key={j}>{part}</Text>;
+                    })}
+                    {i < message.content.split('\n').length - 1 && '\n'}
+                  </Text>
+                );
+              })}
             </Text>
             <Text
               style={[
@@ -380,10 +405,12 @@ export default function ChatScreen() {
               })}
             </Text>
           </View>
-        ))}
+        ))
+        )}
         {loading && (
           <View style={styles.loadingBubble}>
             <ActivityIndicator size="small" color={colors.textSecondary} />
+            <Text style={styles.loadingText}>Thinking...</Text>
           </View>
         )}
       </ScrollView>
@@ -594,6 +621,33 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  emptyStateTitle: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   recipeButtonContainer: {
     padding: 16,

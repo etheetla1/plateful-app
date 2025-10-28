@@ -25,7 +25,7 @@ export default function Logo({
 
   // PNG sources
   const logoSources = {
-    circle: require('../../assets/logo-circle3.png'),
+    circle: require('../../assets/logo-circle.png'),
     full: require('../../assets/logo-full.png'),
   };
 

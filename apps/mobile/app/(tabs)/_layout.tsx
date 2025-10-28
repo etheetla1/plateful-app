@@ -7,7 +7,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: colors.primary,
-        headerShown: true,
+        headerShown: false,
       }}
     >
       <Tabs.Screen
@@ -16,24 +16,6 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: 'Chat',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="recipes"
-        options={{
-          title: 'Recipes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant" size={size} color={color} />
           ),
         }}
       />
@@ -47,21 +29,41 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="recipes"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="recipes-new"
+        options={{
+          title: 'Recipes',
+          tabBarLabel: 'Recipes',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book" size={size} color={color} />
+          ),
+          tabBarLabelStyle: { fontSize: 12 },
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
         name="firebase-test"
         options={{
-          title: 'Firebase Test',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="flask" size={size} color={color} />
-          ),
+          href: null,
         }}
       />
     </Tabs>

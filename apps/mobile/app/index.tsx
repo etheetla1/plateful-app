@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { onAuthStateChange } from '../src/services/auth';
 
@@ -31,6 +31,11 @@ export default function Index() {
   // Show loading screen
   return (
     <View style={styles.container}>
+      <Image 
+        source={require('../assets/logo-full.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <ActivityIndicator size="large" color="#FF9800" />
       <Text style={styles.loadingText}>Loading Plateful...</Text>
       <Text style={styles.debugText}>Checking authentication...</Text>
@@ -45,6 +50,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 20,
+  },
+  logo: {
+    width: 200,
+    height: 80,
+    marginBottom: 40,
   },
   loadingText: {
     fontSize: 18,

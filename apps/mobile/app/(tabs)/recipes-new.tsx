@@ -15,10 +15,10 @@ import type { Recipe } from '@plateful/shared';
 
 // API endpoint - platform aware
 const API_BASE = Platform.select({
-  web: 'http://localhost:3000',
-  android: 'http://10.0.2.2:3000',
-  ios: 'http://localhost:3000',
-  default: 'http://localhost:3000',
+  web: 'http://localhost:3001',
+  android: 'http://10.0.2.2:3001',
+  ios: 'http://localhost:3001',
+  default: 'http://localhost:3001',
 });
 
 const MOCK_USER_ID = 'user-dev-001';
