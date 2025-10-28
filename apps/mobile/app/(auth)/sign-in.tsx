@@ -8,12 +8,15 @@ import {
   ScrollView,
   Alert,
   TouchableOpacity,
-  Image,
+  Dimensions,
 } from 'react-native';
+
+const { width: screenWidth } = Dimensions.get('window');
 import { useRouter } from 'expo-router';
 import { Button, Input } from '@plateful/ui';
 import { signInWithEmail } from '../../src/services/auth';
-import { isValidEmail } from '@plateful/shared';
+import { isValidEmail, allColors as colors } from '@plateful/shared';
+import Logo from '../../src/components/Logo';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -82,16 +85,13 @@ export default function SignIn() {
         <View style={styles.content}>
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>🍽️</Text>
-            </View>
-            <Text style={styles.brandName}>Plateful</Text>
+            <Logo variant="full" width={screenWidth * 0.9} height={screenWidth * 0.25} />
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={styles.inputLabel}>Email address</Text>
               <Input
                 value={email}
                 onChangeText={(text) => {
@@ -135,16 +135,15 @@ export default function SignIn() {
               variant="primary"
             />
 
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>Don't have an account?</Text>
-            </View>
-
-            <Button
-              title="Register"
+            <TouchableOpacity
               onPress={navigateToRegister}
-              variant="secondary"
-              disabled={loading}
-            />
+              activeOpacity={0.7}
+              style={styles.registerLink}
+            >
+              <Text style={styles.registerText}>
+                Don't have an account? <Text style={styles.registerLinkText}>Register here</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -163,70 +162,59 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingHorizontal: 28,
+    paddingVertical: 48,
+    paddingBottom: 60,
+    maxWidth: 340,
+    alignSelf: 'center',
+    width: '100%',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 60,
-  },
-  logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FF9800',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#FF9800',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logoText: {
-    fontSize: 48,
-  },
-  brandName: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#212121',
+    marginBottom: 84,
   },
   form: {
-    gap: 16,
+    gap: 12,
   },
   inputGroup: {
-    marginBottom: 8,
+    marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
-    color: '#212121',
+    color: colors.textSecondary,
     marginBottom: 8,
-    marginLeft: 4,
+    letterSpacing: 0.2,
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
-    marginTop: -8,
-    marginBottom: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    marginTop: 0,
+    marginBottom: 32,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
   },
   forgotPasswordText: {
-    fontSize: 14,
-    color: '#64B5F6',
+    fontSize: 13,
+    color: colors.accent,
     fontWeight: '500',
+    letterSpacing: 0.1,
+    textDecorationLine: 'underline',
   },
-  registerContainer: {
+  registerLink: {
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: -8,
+    marginTop: 32,
+    paddingVertical: 4,
   },
   registerText: {
-    fontSize: 14,
-    color: '#757575',
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '400',
+    letterSpacing: 0.1,
+    textAlign: 'center',
+  },
+  registerLinkText: {
+    color: colors.accent,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });
