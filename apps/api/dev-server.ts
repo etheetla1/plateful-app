@@ -104,7 +104,7 @@ async function scrapeRecipeContent(url: string): Promise<string> {
     return content;
     
   } catch (error) {
-    console.error(`Error scraping ${url}:`, error.message);
+    console.error(`Error scraping ${url}:`, error instanceof Error ? error.message : String(error));
     throw new Error(`Failed to scrape content from ${url}`);
   }
 }

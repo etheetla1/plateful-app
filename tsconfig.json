@@ -1,4 +1,28 @@
 {
-  "compilerOptions": {},
-  "extends": "expo/tsconfig.base"
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@plateful/shared": ["./packages/shared/src"],
+      "@plateful/shared/*": ["./packages/shared/src/*"],
+      "@plateful/ui": ["./packages/ui/src"],
+      "@plateful/ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*"
+  ],
+  "exclude": ["node_modules", "dist", ".next", ".expo"]
 }
