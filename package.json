@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Plateful - Grocery management app",
+  "packageManager": "npm@10.2.4",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -19,8 +20,11 @@
     "figma:sync": "cd tools/figma && npm install && npm run sync",
     "figma:tokens": "cd tools/figma && npm install && npm run extract-tokens",
     "figma:assets": "cd tools/figma && npm install && npm run download-assets",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "android": "cd apps/mobile && npx expo run:android",
+    "ios": "cd apps/mobile && npx expo run:ios",
+    "verify:firebase": "./verify-firebase-config.sh",
+    "prebuild:clean": "cd apps/mobile && npx expo prebuild --clean",
+    "test:platforms": "echo 'Run npm run android in one terminal and npm run ios in another'"
   },
   "devDependencies": {
     "prettier": "^3.1.1",

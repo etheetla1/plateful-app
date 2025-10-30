@@ -6,9 +6,7 @@
     "dev": "tsx dev-server.ts",
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "clean": "rm -rf .vercel",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "clean": "rm -rf .vercel"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
@@ -20,11 +18,7 @@
     "cheerio": "^1.1.2",
     "dotenv": "^16.3.1",
     "hono": "^4.0.0",
-    "react-native-web": "^0.21.0",
-    "uuid": "^13.0.0",
-    "expo": "~54.0.13",
-    "react": "19.1.0",
-    "react-native": "0.81.4"
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.6",
