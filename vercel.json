@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd apps/api && npm run build",
+  "buildCommand": "npx turbo build --filter=api",
   "installCommand": "npm install",
   "ignoreCommand": "exit 0",
   "framework": null,
