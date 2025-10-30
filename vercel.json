@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build --workspace=api",
+  "buildCommand": "npm run build",
   "installCommand": "npm ci --workspaces --include-workspace-root",
-  "outputDirectory": "public",
+  "outputDirectory": ".vercel_build_output/public",
   "framework": null,
   "functions": {
     "apps/api/api/**/*.ts": {
