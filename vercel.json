@@ -1,7 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "turbo run build --filter=api",
+  "buildCommand": "cd apps/api && npm run build",
   "installCommand": "npm install",
+  "ignoreCommand": "exit 0",
+  "framework": null,
   "functions": {
     "apps/api/api/**/*.ts": {
       "runtime": "nodejs18.x",
