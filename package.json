@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "cd apps/api && npm run build && cd ../.. && mkdir -p .vercel_build_output api && cp -r public .vercel_build_output/ && cp -r apps/api/api/* api/",
+    "build": "turbo run build && mkdir -p .vercel_build_output api && cp -r public .vercel_build_output/ && cp -r apps/api/api/* api/",
     "build:api": "npm run build --workspace=api",
     "clean": "turbo run clean",
     "type-check": "turbo run type-check",
