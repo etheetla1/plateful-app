@@ -604,6 +604,7 @@ export default function RecipesScreen() {
     default: 'http://localhost:3001',
   });
   const router = useRouter();
+  const [recipeFilter, setRecipeFilter] = useState<'all' | 'saved'>('all');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
@@ -618,13 +619,17 @@ export default function RecipesScreen() {
     if (auth.currentUser) {
       loadRecipes();
     }
-  }, []);
+  }, [recipeFilter]);
 
   const loadRecipes = async () => {
     if (!auth.currentUser) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`);
+      const url = recipeFilter === 'saved' 
+        ? `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}?saved=true`
+        : `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`;
+      
+      const response = await fetch(url);
       
       if (!response.ok) {
         throw new Error('Failed to load recipes');
@@ -964,12 +969,41 @@ export default function RecipesScreen() {
           </Text>
         </View>
 
+        {/* Tab Switcher */}
+        <View style={styles.tabSwitcher}>
+          <TouchableOpacity
+            style={[styles.tabButton, recipeFilter === 'all' && styles.tabButtonActive]}
+            onPress={() => setRecipeFilter('all')}
+          >
+            <Text style={[styles.tabButtonText, recipeFilter === 'all' && styles.tabButtonTextActive]}>
+              All Recipes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, recipeFilter === 'saved' && styles.tabButtonActive]}
+            onPress={() => setRecipeFilter('saved')}
+          >
+            <Ionicons 
+              name="bookmark" 
+              size={16} 
+              color={recipeFilter === 'saved' ? colors.surface : colors.textSecondary} 
+            />
+            <Text style={[styles.tabButtonText, recipeFilter === 'saved' && styles.tabButtonTextActive]}>
+              Saved Recipes
+            </Text>
+          </TouchableOpacity>
+        </View>
+
       {recipes.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="restaurant-outline" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>No recipes yet</Text>
+          <Text style={styles.emptyText}>
+            {recipeFilter === 'saved' ? 'No saved recipes yet' : 'No recipes yet'}
+          </Text>
           <Text style={styles.emptySubtext}>
-            Chat with the AI to discover and save recipes!
+            {recipeFilter === 'saved' 
+              ? 'Bookmark recipes you like to view them here'
+              : 'Chat with the AI to discover and save recipes!'}
           </Text>
         </View>
       ) : (
@@ -1088,6 +1122,36 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  tabSwitcher: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tabButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  tabButtonTextActive: {
+    color: colors.surface,
   },
   loadingText: {
     marginTop: 12,

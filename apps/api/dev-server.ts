@@ -15,6 +15,7 @@ import extractIntentRoutes from './api/extract-intent';
 import profileRoutes from './api/profile';
 import pantryRoutes from './api/pantry';
 import groceryRoutes from './api/grocery';
+import tutorialsRoutes from './api/tutorials';
 
 // Load environment variables
 dotenv.config();
@@ -45,6 +46,7 @@ app.route('/api/extract-intent', extractIntentRoutes);
 app.route('/api/profile', profileRoutes);
 app.route('/api/pantry', pantryRoutes);
 app.route('/api/grocery', groceryRoutes);
+app.route('/api/tutorials', tutorialsRoutes);
 
 // Initialize Anthropic client
 const client = new Anthropic({ 

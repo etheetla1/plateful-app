@@ -1,13 +1,13 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@plateful/shared';
-import { Text, View } from 'react-native';
+import { Text, View, Platform } from 'react-native';
 
 const TabLabel = ({ focused, label }: { focused: boolean; label: string }) => (
   <View style={{ alignItems: 'center', justifyContent: 'center' }}>
     <View
       style={{
-        paddingHorizontal: 6,
+        paddingHorizontal: 4,
         paddingVertical: 2,
         borderRadius: 5,
         backgroundColor: focused ? colors.primary : 'transparent',
@@ -15,7 +15,15 @@ const TabLabel = ({ focused, label }: { focused: boolean; label: string }) => (
         borderBottomColor: focused ? colors.primary : 'transparent',
       }}
     >
-      <Text style={{ fontSize: 11, fontWeight: '700', color: focused ? '#ffffff' : '#424242' }}>
+      <Text 
+        style={{ 
+          fontSize: 10, 
+          fontWeight: '700', 
+          color: focused ? '#ffffff' : '#424242',
+        }}
+        numberOfLines={1}
+        adjustsFontSizeToFit={false}
+      >
         {label}
       </Text>
     </View>
@@ -32,9 +40,21 @@ export default function TabLayout() {
         tabBarStyle: {
           borderTopWidth: 0.5,
           borderTopColor: 'rgba(0, 0, 0, 0.1)',
+          paddingHorizontal: 12,
+          paddingBottom: 8,
+          paddingTop: 4,
+          height: Platform.OS === 'android' ? 85 : 65,
+          ...(Platform.OS === 'android' && { paddingBottom: 32 }),
         },
         tabBarIconStyle: {
-          marginTop: 0,
+          marginTop: 4,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 4,
+        },
+        tabBarLabelStyle: {
+          marginTop: 2,
+          marginBottom: 2,
         },
       })}
       sceneContainerStyle={{}}
@@ -86,20 +106,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="pantry"
         options={{
-          title: 'Pantry',
-          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Pantry" />,
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="basket"
-              size={size}
-              color={color}
-              style={
-                focused
-                  ? { transform: [{ scale: 1.1 }] }
-                  : {}
-              }
-            />
-          ),
+          href: null, // Hide from tab bar - now inside Groceries
         }}
       />
       <Tabs.Screen
@@ -129,6 +136,25 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
               name="chatbubbles"
+              size={size}
+              color={color}
+              style={
+                focused
+                  ? { transform: [{ scale: 1.1 }] }
+                  : {}
+              }
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="learn"
+        options={{
+          title: 'Learn',
+          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Learn" />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="school"
               size={size}
               color={color}
               style={

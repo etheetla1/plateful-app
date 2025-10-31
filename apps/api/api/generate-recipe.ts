@@ -265,10 +265,22 @@ app.get('/user/:userID', async (c) => {
       return c.json({ error: 'Database not available' }, 503);
     }
 
+    // Support filtering by saved status
+    const savedOnly = c.req.query('saved') === 'true';
+    
+    let query = 'SELECT * FROM c WHERE c.userID = @userID';
+    const parameters: any[] = [{ name: '@userID', value: userID }];
+    
+    if (savedOnly) {
+      query += ' AND c.isSaved = true';
+    }
+    
+    query += ' ORDER BY c.createdAt DESC';
+
     const { resources: recipes } = await container.items
       .query<Recipe>({
-        query: 'SELECT * FROM c WHERE c.userID = @userID ORDER BY c.createdAt DESC',
-        parameters: [{ name: '@userID', value: userID }],
+        query,
+        parameters,
       })
       .fetchAll();
 

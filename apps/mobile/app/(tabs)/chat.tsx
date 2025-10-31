@@ -76,7 +76,23 @@ export default function ChatScreen() {
       const response = await fetch(`${API_BASE}/api/chat/messages/${conversationID}`);
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.messages || []);
+        const loadedMessages = data.messages || [];
+        
+        // Deduplicate messages by ID to prevent duplicates
+        const uniqueMessages = loadedMessages.reduce((acc: ChatMessage[], msg: ChatMessage) => {
+          const existing = acc.find(m => m.id === msg.id);
+          if (!existing) {
+            acc.push(msg);
+          }
+          return acc;
+        }, []);
+        
+        // Sort by timestamp to ensure correct order
+        uniqueMessages.sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        
+        setMessages(uniqueMessages);
       }
     } catch (error) {
       console.error('Failed to load messages:', error);
@@ -459,9 +475,15 @@ export default function ChatScreen() {
             <Text style={styles.emptyStateText}>Ask me about any dish or cuisine you'd like to try!</Text>
           </View>
         ) : (
-          messages.map((message, index) => (
+          messages.map((message, index) => {
+            // Create unique key combining id, index, and timestamp to avoid duplicates
+            const uniqueKey = message.id 
+              ? `${message.id}-${index}` 
+              : `msg-${index}-${message.timestamp || Date.now()}`;
+            
+            return (
           <View
-            key={message.id || index}
+            key={uniqueKey}
             style={[
               styles.messageBubble,
               message.role === 'user' ? styles.userBubble : styles.assistantBubble,
@@ -505,7 +527,8 @@ export default function ChatScreen() {
               })}
             </Text>
           </View>
-        ))
+            );
+          })
         )}
         {loading && (
           <View style={styles.loadingBubble}>
