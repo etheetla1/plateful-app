@@ -303,7 +303,36 @@ cp .env.example .env.local
 FIREBASE_PROJECT_ID=plateful-mvp
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@plateful-mvp.iam.gserviceaccount.com
+
+# YouTube Data API v3 (for tutorial video search)
+# Get from: https://console.cloud.google.com/apis/credentials
+YOUTUBE_API_KEY=your-youtube-api-key-here
+
+# Anthropic API (for written tutorial search)
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Azure Cosmos DB (optional, for chat/recipe storage)
+COSMOS_ENDPOINT=https://your-account.documents.azure.com:443/
+COSMOS_KEY=your-cosmos-db-primary-key
 ```
+
+**Getting Your YouTube API Key:**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **YouTube Data API v3**:
+   - Navigate to **APIs & Services** → **Library**
+   - Search for "YouTube Data API v3"
+   - Click **Enable**
+4. Create credentials:
+   - Go to **APIs & Services** → **Credentials**
+   - Click **Create Credentials** → **API Key**
+   - Copy the API key
+5. (Optional) Restrict the API key:
+   - Click on the key to edit
+   - Under **API restrictions**, select "Restrict key"
+   - Choose "YouTube Data API v3"
+   - Save
 
 ### Step 4: Deploy Firebase Security Rules
 

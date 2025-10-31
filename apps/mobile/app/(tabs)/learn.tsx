@@ -504,6 +504,46 @@ export default function LearnScreen() {
   return (
     <View style={styles.container}>
       <Header title="Learn" />
+      
+      {/* Tab Switcher */}
+      <View style={styles.tabSwitcher}>
+        <TouchableOpacity
+          style={[styles.tab, viewMode === 'search' && styles.tabActive]}
+          onPress={() => setViewMode('search')}
+        >
+          <Ionicons
+            name="search"
+            size={18}
+            color={viewMode === 'search' ? colors.surface : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              viewMode === 'search' && styles.tabTextActive,
+            ]}
+          >
+            Search
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, viewMode === 'saved' && styles.tabActive]}
+          onPress={() => setViewMode('saved')}
+        >
+          <Ionicons
+            name="bookmark"
+            size={18}
+            color={viewMode === 'saved' ? colors.surface : colors.textSecondary}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              viewMode === 'saved' && styles.tabTextActive,
+            ]}
+          >
+            Saved
+          </Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -529,45 +569,6 @@ export default function LearnScreen() {
             </View>
           )}
 
-        {/* Mode Switcher: Search vs Saved */}
-        <View style={styles.modeSwitcher}>
-          <TouchableOpacity
-            style={[styles.modeButton, viewMode === 'search' && styles.modeButtonActive]}
-            onPress={() => setViewMode('search')}
-          >
-            <Ionicons
-              name="search"
-              size={18}
-              color={viewMode === 'search' ? colors.surface : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                viewMode === 'search' && styles.modeButtonTextActive,
-              ]}
-            >
-              Search
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeButton, viewMode === 'saved' && styles.modeButtonActive]}
-            onPress={() => setViewMode('saved')}
-          >
-            <Ionicons
-              name="bookmark"
-              size={18}
-              color={viewMode === 'saved' ? colors.surface : colors.textSecondary}
-            />
-            <Text
-              style={[
-                styles.modeButtonText,
-                viewMode === 'saved' && styles.modeButtonTextActive,
-              ]}
-            >
-              Saved
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         {/* Filter Buttons - only show in search mode */}
         {viewMode === 'search' && (
@@ -660,6 +661,12 @@ export default function LearnScreen() {
                         resizeMode="cover"
                       />
                       <View style={styles.cardContent}>
+                        <View style={styles.typeLabelContainer}>
+                          <View style={styles.typeBadgeVideo}>
+                            <Ionicons name="videocam" size={12} color={colors.surface} />
+                            <Text style={styles.typeBadgeTextVideo}>Video</Text>
+                          </View>
+                        </View>
                         <Text style={styles.cardTitle} numberOfLines={2}>
                           {tutorial.title}
                         </Text>
@@ -703,6 +710,12 @@ export default function LearnScreen() {
                         </View>
                       )}
                       <View style={styles.cardContent}>
+                        <View style={styles.typeLabelContainer}>
+                          <View style={styles.typeBadgeWritten}>
+                            <Ionicons name="document-text" size={12} color={colors.surface} />
+                            <Text style={styles.typeBadgeTextWritten}>Article</Text>
+                          </View>
+                        </View>
                         <Text style={styles.cardTitle} numberOfLines={2}>
                           {tutorial.title}
                         </Text>
@@ -762,6 +775,12 @@ export default function LearnScreen() {
                       resizeMode="cover"
                     />
                     <View style={styles.cardContent}>
+                      <View style={styles.typeLabelContainer}>
+                        <View style={styles.typeBadgeVideo}>
+                          <Ionicons name="videocam" size={12} color={colors.surface} />
+                          <Text style={styles.typeBadgeTextVideo}>Video</Text>
+                        </View>
+                      </View>
                       <Text style={styles.cardTitle} numberOfLines={2}>
                         {tutorial.title}
                       </Text>
@@ -805,6 +824,12 @@ export default function LearnScreen() {
                       </View>
                     )}
                     <View style={styles.cardContent}>
+                      <View style={styles.typeLabelContainer}>
+                        <View style={styles.typeBadgeWritten}>
+                          <Ionicons name="document-text" size={12} color={colors.surface} />
+                          <Text style={styles.typeBadgeTextWritten}>Article</Text>
+                        </View>
+                      </View>
                       <Text style={styles.cardTitle} numberOfLines={2}>
                         {tutorial.title}
                       </Text>
@@ -897,34 +922,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modeSwitcher: {
+  tabSwitcher: {
     flexDirection: 'row',
-    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 16,
     marginBottom: 16,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
   },
-  modeButton: {
+  tab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 8,
   },
-  modeButtonActive: {
+  tabActive: {
     backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
-  modeButtonText: {
+  tabText: {
     fontSize: 15,
     fontWeight: '600',
     color: colors.textSecondary,
   },
-  modeButtonTextActive: {
+  tabTextActive: {
     color: colors.surface,
   },
   filterContainer: {
@@ -1007,6 +1033,41 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  typeLabelContainer: {
+    marginBottom: 6,
+  },
+  typeBadgeVideo: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FF0000', // YouTube red
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  typeBadgeTextVideo: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.surface,
+    letterSpacing: 0.3,
+  },
+  typeBadgeWritten: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  typeBadgeTextWritten: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.surface,
+    letterSpacing: 0.3,
   },
   cardContent: {
     flex: 1,
