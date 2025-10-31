@@ -53,33 +53,32 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Header />
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.userName}>{userName}</Text>
-        </View>
-      </View>
-
-      {/* Day Streak */}
-      <View style={styles.card}>
-        <Text style={styles.streakText}>{dayStreak} day streak</Text>
-        <View style={styles.daysContainer}>
-          {weekDays.map((item) => (
-            <View
-              key={item.day}
-              style={[
-                styles.dayCircle,
-                item.completed ? styles.dayCircleCompleted : styles.dayCircleIncomplete,
-              ]}
-            >
-              {item.completed ? (
-                <Text style={styles.checkmark}>✓</Text>
-              ) : (
-                <Text style={styles.dayNumber}>{item.day}</Text>
-              )}
+      <Header title="Home" />
+      
+      {/* Combined Welcome & Streak Card */}
+      <View style={styles.welcomeCard}>
+        <View style={styles.welcomeStreakContainer}>
+          <Text style={styles.greeting}>Hi, {userName}</Text>
+          <View style={styles.streakSection}>
+            <Text style={styles.streakText}>{dayStreak} day streak</Text>
+            <View style={styles.daysContainer}>
+              {weekDays.map((item) => (
+                <View
+                  key={item.day}
+                  style={[
+                    styles.dayCircle,
+                    item.completed ? styles.dayCircleCompleted : styles.dayCircleIncomplete,
+                  ]}
+                >
+                  {item.completed ? (
+                    <Text style={styles.checkmark}>✓</Text>
+                  ) : (
+                    <Text style={styles.dayNumber}>{item.day}</Text>
+                  )}
+                </View>
+              ))}
             </View>
-          ))}
+          </View>
         </View>
       </View>
 
@@ -156,41 +155,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    padding: 20,
-    paddingTop: 8,
-    backgroundColor: colors.surface,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  userName: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  card: {
+  welcomeCard: {
     backgroundColor: colors.surface,
     marginHorizontal: 20,
     marginTop: 20,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  streakText: {
-    fontSize: 18,
+  welcomeStreakContainer: {
+    width: '100%',
+  },
+  card: {
+    backgroundColor: colors.surface,
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  greeting: {
+    fontSize: 20,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  streakSection: {
+    marginTop: 0,
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 14,
   },
   daysContainer: {
     flexDirection: 'row',

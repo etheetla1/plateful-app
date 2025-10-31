@@ -17,6 +17,8 @@ import Header from '../src/components/Header';
 import { auth } from '../src/config/firebase';
 import type { FoodProfile } from '@plateful/shared';
 import { colors } from '@plateful/shared';
+import { updateProfile } from 'firebase/auth';
+import { Input } from '@plateful/ui';
 import {
   COMMON_LIKES,
   COMMON_DISLIKES,
@@ -105,9 +107,11 @@ export default function ProfileScreen() {
   const [dislikesCustom, setDislikesCustom] = useState<string[]>([]);
   const [allergensCustom, setAllergensCustom] = useState<string[]>([]);
   const [restrictionsCustom, setRestrictionsCustom] = useState<string[]>([]);
+  const [displayName, setDisplayName] = useState('');
 
   useEffect(() => {
     if (user) {
+      setDisplayName(user.displayName || '');
       loadProfile();
     } else {
       router.replace('/(auth)/sign-in');
@@ -171,6 +175,13 @@ export default function ProfileScreen() {
 
     try {
       setSaving(true);
+      
+      // Update display name if changed
+      if (displayName.trim() && displayName !== user.displayName) {
+        await updateProfile(user, { displayName: displayName.trim() });
+        console.log('✅ Display name updated');
+      }
+      
       // likes/dislikes/allergens/restrictions already contain all selected items (common + custom)
       const allLikes = likes;
       const allDislikes = dislikes;
@@ -328,6 +339,17 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <Header title="Food Preferences" showBackButton />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {/* Display Name Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Display Name</Text>
+          <Input
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Enter your display name"
+            autoCapitalize="words"
+          />
+        </View>
+
         {renderPillSection(
           'Likes',
           COMMON_LIKES,
