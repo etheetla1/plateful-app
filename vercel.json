@@ -1,11 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build:api",
+  "buildCommand": "pnpm run build:api && mkdir -p api && cp -r apps/api/api/* api/",
   "installCommand": "pnpm install",
-  "outputDirectory": "apps/api/api",
   "functions": {
     "api/**/*.ts": {
-      "runtime": "nodejs18.x"
+      "runtime": "@vercel/node@3.0.11"
     }
   },
   "rewrites": [
