@@ -12,13 +12,416 @@ import {
   Image,
   Alert,
   Animated,
+  Modal,
+  FlatList,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { Recipe } from '@plateful/shared';
-import { colors, semanticColors } from '@plateful/shared';
+import type { Recipe, GroceryList, PantryItem } from '@plateful/shared';
+import { colors, semanticColors, parseIngredients, findPantryMatch } from '@plateful/shared';
 import { auth } from '../../src/config/firebase';
 import Header from '../../src/components/Header';
 import { useRouter } from 'expo-router';
+
+interface IngredientItem {
+  name: string;
+  quantity: number;
+  unit: string;
+  category?: string;
+  notes?: string;
+  checked: boolean; // User approval
+  pantryMatch?: {
+    item: PantryItem | null;
+    matchType: 'exact' | 'fuzzy' | null;
+  };
+}
+
+interface AddToGroceryModalProps {
+  visible: boolean;
+  recipe: Recipe | null;
+  onClose: () => void;
+  onSuccess?: () => void;
+}
+
+function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGroceryModalProps) {
+  // API endpoint - platform aware
+  const API_BASE = Platform.select({
+    web: 'http://localhost:3001',
+    android: 'http://10.0.2.2:3001',
+    ios: 'http://localhost:3001',
+    default: 'http://localhost:3001',
+  });
+
+  const [lists, setLists] = useState<GroceryList[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [selectedListID, setSelectedListID] = useState<string | null>(null);
+  const [showCreateList, setShowCreateList] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [ingredients, setIngredients] = useState<IngredientItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingLists, setLoadingLists] = useState(true);
+
+  useEffect(() => {
+    if (visible && recipe && auth.currentUser) {
+      loadLists();
+      loadPantryItems();
+    }
+  }, [visible, recipe]);
+
+  useEffect(() => {
+    if (visible && recipe && pantryItems.length >= 0) {
+      parseRecipeIngredients();
+    }
+  }, [visible, recipe, pantryItems]);
+
+  const loadLists = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      setLoadingLists(true);
+      const response = await fetch(`${API_BASE}/api/grocery/${auth.currentUser.uid}/lists`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load grocery lists');
+      }
+
+      const data = await response.json();
+      setLists(data.lists || []);
+    } catch (error) {
+      console.error('Failed to load grocery lists:', error);
+      Alert.alert('Error', 'Failed to load grocery lists');
+    } finally {
+      setLoadingLists(false);
+    }
+  };
+
+  const loadPantryItems = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/pantry/${auth.currentUser.uid}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load pantry items');
+      }
+
+      const data = await response.json();
+      setPantryItems(data.items || []);
+    } catch (error) {
+      console.error('Failed to load pantry items:', error);
+    }
+  };
+
+  const parseRecipeIngredients = () => {
+    if (!recipe) return;
+
+    const parsed = parseIngredients(recipe.recipeData.ingredients);
+    
+    const ingredientItems: IngredientItem[] = parsed.map(item => {
+      const pantryMatch = findPantryMatch(item.name, pantryItems);
+      return {
+        ...item,
+        checked: pantryMatch.matchType === 'exact' ? true : true, // Default all checked, exact matches auto-checked
+        pantryMatch,
+      };
+    });
+
+    setIngredients(ingredientItems);
+  };
+
+  const toggleIngredient = (index: number) => {
+    setIngredients(prev => 
+      prev.map((item, i) => 
+        i === index ? { ...item, checked: !item.checked } : item
+      )
+    );
+  };
+
+  const createListAndAdd = async () => {
+    if (!auth.currentUser || !newListName.trim()) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newListName.trim() }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create list');
+      }
+
+      const data = await response.json();
+      await loadLists();
+      setSelectedListID(data.list.id);
+      setShowCreateList(false);
+      setNewListName('');
+    } catch (error) {
+      console.error('Failed to create list:', error);
+      Alert.alert('Error', 'Failed to create list');
+    }
+  };
+
+  const handleAddToGroceryList = async () => {
+    if (!auth.currentUser || !selectedListID) {
+      Alert.alert('Select List', 'Please select a grocery list');
+      return;
+    }
+
+    const selectedIngredients = ingredients.filter(ing => ing.checked);
+    if (selectedIngredients.length === 0) {
+      Alert.alert('No Items', 'Please select at least one ingredient to add');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const itemsToAdd = selectedIngredients.map(ing => ({
+        name: ing.name,
+        quantity: ing.quantity,
+        unit: ing.unit,
+        category: ing.category,
+        notes: ing.notes,
+      }));
+
+      const response = await fetch(
+        `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${selectedListID}/items`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: itemsToAdd }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to add items');
+      }
+
+      const data = await response.json();
+      const createdItems = data.items || [];
+      
+      // Mark exact pantry matches as completed (crossed out)
+      const exactMatches = selectedIngredients.filter(
+        ing => ing.pantryMatch?.matchType === 'exact'
+      );
+
+      if (exactMatches.length > 0) {
+        // Update exact matches to completed
+        for (const item of createdItems) {
+          const ingredient = selectedIngredients.find(
+            ing => ing.name.toLowerCase() === item.name.toLowerCase()
+          );
+          if (ingredient?.pantryMatch?.matchType === 'exact') {
+            await fetch(
+              `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${selectedListID}/items/${item.id}`,
+              {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ completed: true }),
+              }
+            ).catch(err => console.error('Failed to mark item completed:', err));
+          }
+        }
+      }
+
+      Alert.alert('Success', `Added ${selectedIngredients.length} item(s) to your grocery list`);
+      onClose();
+      if (onSuccess) onSuccess();
+    } catch (error: any) {
+      console.error('Failed to add items:', error);
+      Alert.alert('Error', error.message || 'Failed to add items to grocery list');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!recipe) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={addGroceryStyles.modalBackdrop}>
+        <View style={addGroceryStyles.modalContent}>
+          <View style={addGroceryStyles.modalHeader}>
+            <Text style={addGroceryStyles.modalTitle}>Add to Grocery List</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={addGroceryStyles.recipeTitle}>{recipe.recipeData.title}</Text>
+
+          {loadingLists ? (
+            <View style={addGroceryStyles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : (
+            <>
+              {/* List Selection */}
+              <Text style={addGroceryStyles.sectionTitle}>Select Grocery List</Text>
+              {showCreateList ? (
+                <View style={addGroceryStyles.createListContainer}>
+                  <TextInput
+                    style={addGroceryStyles.listInput}
+                    placeholder="New list name"
+                    value={newListName}
+                    onChangeText={setNewListName}
+                    autoFocus
+                  />
+                  <View style={addGroceryStyles.createListButtons}>
+                    <TouchableOpacity
+                      style={addGroceryStyles.cancelButton}
+                      onPress={() => {
+                        setShowCreateList(false);
+                        setNewListName('');
+                      }}
+                    >
+                      <Text style={addGroceryStyles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[addGroceryStyles.createButton, !newListName.trim() && addGroceryStyles.createButtonDisabled]}
+                      onPress={createListAndAdd}
+                      disabled={!newListName.trim()}
+                    >
+                      <Text style={addGroceryStyles.createButtonText}>Create</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <FlatList
+                    data={lists}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={[
+                          addGroceryStyles.listItem,
+                          selectedListID === item.id && addGroceryStyles.listItemSelected,
+                        ]}
+                        onPress={() => setSelectedListID(item.id)}
+                      >
+                        <View style={[
+                          addGroceryStyles.radioButton,
+                          selectedListID === item.id && addGroceryStyles.radioButtonSelected,
+                        ]}>
+                          {selectedListID === item.id && (
+                            <View style={addGroceryStyles.radioButtonInner} />
+                          )}
+                        </View>
+                        <Text style={addGroceryStyles.listItemText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    )}
+                    style={addGroceryStyles.listsList}
+                    nestedScrollEnabled
+                  />
+                  <TouchableOpacity
+                    style={addGroceryStyles.newListButton}
+                    onPress={() => setShowCreateList(true)}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+                    <Text style={addGroceryStyles.newListButtonText}>Create New List</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Ingredients Selection */}
+              <Text style={addGroceryStyles.sectionTitle}>Select Ingredients</Text>
+              <FlatList
+                data={ingredients}
+                keyExtractor={(item, index) => `${item.name}-${index}`}
+                renderItem={({ item, index }) => {
+                  const isExactMatch = item.pantryMatch?.matchType === 'exact';
+                  const isFuzzyMatch = item.pantryMatch?.matchType === 'fuzzy';
+
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        addGroceryStyles.ingredientItem,
+                        isFuzzyMatch && addGroceryStyles.ingredientItemFuzzy,
+                        isExactMatch && addGroceryStyles.ingredientItemExact,
+                      ]}
+                      onPress={() => toggleIngredient(index)}
+                    >
+                      <View style={[
+                        addGroceryStyles.checkbox,
+                        item.checked && addGroceryStyles.checkboxChecked,
+                        isExactMatch && addGroceryStyles.checkboxExactMatch,
+                      ]}>
+                        {item.checked && (
+                          <Ionicons name="checkmark" size={16} color={colors.surface} />
+                        )}
+                      </View>
+                      <View style={addGroceryStyles.ingredientContent}>
+                        <Text style={[
+                          addGroceryStyles.ingredientName,
+                          isExactMatch && addGroceryStyles.ingredientNameExact,
+                        ]}>
+                          {item.name}
+                        </Text>
+                        {item.quantity > 1 && (
+                          <Text style={addGroceryStyles.ingredientQuantity}>
+                            {item.quantity} {item.unit}
+                          </Text>
+                        )}
+                        {isFuzzyMatch && item.pantryMatch?.item && (
+                          <Text style={addGroceryStyles.fuzzyMatchText}>
+                            Similar to: {item.pantryMatch.item.name}
+                          </Text>
+                        )}
+                        {isExactMatch && (
+                          <Text style={addGroceryStyles.exactMatchText}>
+                            ✓ In pantry
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                style={addGroceryStyles.ingredientsList}
+                nestedScrollEnabled
+              />
+
+              {/* Action Buttons */}
+              <View style={addGroceryStyles.actionButtons}>
+                <TouchableOpacity
+                  style={[addGroceryStyles.cancelActionButton]}
+                  onPress={onClose}
+                  disabled={loading}
+                >
+                  <Text style={addGroceryStyles.cancelActionButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    addGroceryStyles.addButton,
+                    (!selectedListID || loading) && addGroceryStyles.addButtonDisabled,
+                  ]}
+                  onPress={handleAddToGroceryList}
+                  disabled={!selectedListID || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color={colors.surface} />
+                  ) : (
+                    <Text style={addGroceryStyles.addButtonText}>
+                      Add {ingredients.filter(i => i.checked).length} Item(s)
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 // Edited Badge Component with Sparkle Animation
 function EditedBadge({ recipeID }: { recipeID: string }) {
@@ -192,20 +595,21 @@ function EditedBanner() {
   );
 }
 
-// API endpoint - platform aware
-const API_BASE = Platform.select({
-  web: 'http://localhost:3001',
-  android: 'http://10.0.2.2:3001',
-  ios: 'http://localhost:3001',
-  default: 'http://localhost:3001',
-});
-
 export default function RecipesScreen() {
+  // API endpoint - platform aware
+  const API_BASE = Platform.select({
+    web: 'http://localhost:3001',
+    android: 'http://10.0.2.2:3001',
+    ios: 'http://localhost:3001',
+    default: 'http://localhost:3001',
+  });
   const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAddToGrocery, setShowAddToGrocery] = useState(false);
+  const [recipeForGrocery, setRecipeForGrocery] = useState<Recipe | null>(null);
   
   // Sparkle animations for edited recipes
   const sparkleAnims = useRef<{ [key: string]: Animated.Value[] }>({});
@@ -521,7 +925,27 @@ export default function RecipesScreen() {
             <Ionicons name="chatbubbles" size={20} color={colors.surface} />
             <Text style={styles.editButtonText}>Edit in Chat</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.addToGroceryButton}
+            onPress={() => {
+              setRecipeForGrocery(selectedRecipe);
+              setShowAddToGrocery(true);
+            }}
+          >
+            <Ionicons name="cart" size={20} color={colors.surface} />
+            <Text style={styles.addToGroceryButtonText}>Add to Grocery List</Text>
+          </TouchableOpacity>
         </View>
+
+        <AddToGroceryModal
+          visible={showAddToGrocery}
+          recipe={recipeForGrocery}
+          onClose={() => {
+            setShowAddToGrocery(false);
+            setRecipeForGrocery(null);
+          }}
+        />
       </ScrollView>
     );
   }
@@ -576,13 +1000,31 @@ export default function RecipesScreen() {
                 <View style={styles.recipeCardText}>
                   <View style={styles.recipeCardHeader}>
                     <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.recipeData.title}</Text>
-                    <TouchableOpacity onPress={() => toggleSaveRecipe(recipe)}>
-                      <Ionicons
-                        name={recipe.isSaved ? 'bookmark' : 'bookmark-outline'}
-                        size={24}
-                        color={colors.primary}
-                      />
-                    </TouchableOpacity>
+                    <View style={styles.recipeCardHeaderActions}>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setRecipeForGrocery(recipe);
+                          setShowAddToGrocery(true);
+                        }}
+                        style={styles.cardActionButton}
+                      >
+                        <Ionicons name="cart-outline" size={20} color={colors.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          toggleSaveRecipe(recipe);
+                        }}
+                        style={styles.cardActionButton}
+                      >
+                        <Ionicons
+                          name={recipe.isSaved ? 'bookmark' : 'bookmark-outline'}
+                          size={24}
+                          color={colors.primary}
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                   {recipe.recipeData.description && (
                     <Text style={styles.recipeCardDescription} numberOfLines={2}>
@@ -610,6 +1052,15 @@ export default function RecipesScreen() {
         </View>
       )}
       </ScrollView>
+
+      <AddToGroceryModal
+        visible={showAddToGrocery}
+        recipe={recipeForGrocery}
+        onClose={() => {
+          setShowAddToGrocery(false);
+          setRecipeForGrocery(null);
+        }}
+      />
     </View>
   );
 }
@@ -1029,6 +1480,272 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.surface,
+  },
+  addToGroceryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+    gap: 8,
+  },
+  addToGroceryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.surface,
+  },
+  recipeCardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  cardActionButton: {
+    padding: 4,
+  },
+});
+
+const addGroceryStyles = StyleSheet.create({
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  recipeTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginBottom: 20,
+  },
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  listsList: {
+    maxHeight: 150,
+    marginBottom: 12,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    marginBottom: 8,
+  },
+  listItemSelected: {
+    backgroundColor: colors.primary + '20',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonSelected: {
+    borderColor: colors.primary,
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  listItemText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  newListButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    gap: 8,
+  },
+  newListButtonText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  createListContainer: {
+    marginBottom: 12,
+  },
+  listInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.textPrimary,
+    backgroundColor: colors.background,
+    marginBottom: 12,
+  },
+  createListButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  createButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  createButtonDisabled: {
+    opacity: 0.5,
+  },
+  createButtonText: {
+    fontSize: 16,
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  ingredientsList: {
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  ingredientItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    marginBottom: 8,
+  },
+  ingredientItemFuzzy: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+    paddingLeft: 16,
+  },
+  ingredientItemExact: {
+    backgroundColor: colors.primary + '15',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxExactMatch: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  ingredientContent: {
+    flex: 1,
+  },
+  ingredientName: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  ingredientNameExact: {
+    textDecorationLine: 'line-through',
+    color: colors.textSecondary,
+  },
+  ingredientQuantity: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  fuzzyMatchText: {
+    fontSize: 11,
+    color: colors.accent,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  exactMatchText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
+  cancelActionButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  cancelActionButtonText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: '600',
+  },
+  addButton: {
+    flex: 2,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  addButtonDisabled: {
+    opacity: 0.5,
+  },
+  addButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.surface,

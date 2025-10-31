@@ -12,5 +12,17 @@ service cloud.firestore {
       allow read, update, delete: if isOwner(resource.data.ownerId);
       allow create: if isOwner(request.resource.data.ownerId);
     }
+    
+    // Grocery Lists
+    match /groceryLists/{listId} {
+      allow read, write: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
+    }
+    
+    // Grocery Items
+    match /groceryItems/{itemId} {
+      allow read, write: if isSignedIn() && request.auth.uid == resource.data.ownerId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerId;
+    }
   }
 }

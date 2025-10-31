@@ -44,13 +44,46 @@ export async function getGroceryLists(ownerId: string): Promise<GroceryList[]> {
     return {
       id: doc.id,
       name: data.name,
-      items: data.items || [],
+      items: [], // Items are stored separately, use getGroceryListWithItems() for populated list
       ownerId: data.ownerId,
       sharedWith: data.sharedWith,
       createdAt: data.createdAt.toDate(),
       updatedAt: data.updatedAt.toDate(),
     } as GroceryList;
   });
+}
+
+/**
+ * Gets a single grocery list with all its items populated.
+ */
+export async function getGroceryListWithItems(
+  listId: string,
+  ownerId: string
+): Promise<GroceryList | null> {
+  const listRef = doc(db, GROCERY_LISTS_COLLECTION, listId);
+  const listSnap = await getDoc(listRef);
+  
+  if (!listSnap.exists()) {
+    return null;
+  }
+  
+  const data = listSnap.data();
+  if (data.ownerId !== ownerId) {
+    return null; // Not owner
+  }
+  
+  // Fetch all items for this list
+  const items = await getGroceryItems(listId);
+  
+  return {
+    id: listSnap.id,
+    name: data.name,
+    items,
+    ownerId: data.ownerId,
+    sharedWith: data.sharedWith,
+    createdAt: data.createdAt.toDate(),
+    updatedAt: data.updatedAt.toDate(),
+  } as GroceryList;
 }
 
 export async function updateGroceryList(
@@ -65,6 +98,11 @@ export async function updateGroceryList(
 }
 
 export async function deleteGroceryList(listId: string): Promise<void> {
+  // First, delete all items in the list
+  const items = await getGroceryItems(listId);
+  await Promise.all(items.map(item => deleteGroceryItem(item.id)));
+  
+  // Then delete the list
   await deleteDoc(doc(db, GROCERY_LISTS_COLLECTION, listId));
 }
 

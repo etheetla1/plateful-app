@@ -1,24 +1,26 @@
 export interface GroceryItem {
   id: string;
+  listID: string; // Required for Cosmos DB partitioning
   name: string;
   quantity: number;
   unit: string;
   category?: string;
   notes?: string;
   completed: boolean;
-  ownerId: string;
-  createdAt: Date;
-  updatedAt: Date;
+  userID: string; // Matches pattern used in pantry, recipes, etc.
+  createdAt: string; // ISO string for Cosmos DB compatibility
+  updatedAt: string; // ISO string for Cosmos DB compatibility
 }
 
 export interface GroceryList {
   id: string;
   name: string;
-  items: GroceryItem[];
-  ownerId: string;
+  items: GroceryItem[]; // Items stored separately in Cosmos, populated when fetched
+  itemCount?: number; // Count of items in the list (for display purposes)
+  userID: string; // Matches pattern used in pantry, recipes, etc.
   sharedWith?: string[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string; // ISO string for Cosmos DB compatibility
+  updatedAt: string; // ISO string for Cosmos DB compatibility
 }
 
 export type GroceryCategory = 

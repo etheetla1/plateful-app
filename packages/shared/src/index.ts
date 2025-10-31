@@ -12,3 +12,5 @@ export * from './constants/common-ingredients';
 
 // Utils
 export * from './utils/validation';
+export * from './utils/ingredient-parser';
+export * from './utils/pantry-matcher';
