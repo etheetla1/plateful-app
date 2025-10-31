@@ -481,6 +481,19 @@ app.post('/ai-response', async (c) => {
       if (profile.dislikes && profile.dislikes.length > 0) {
         systemPrompt += `\n❌ User dislikes: ${profile.dislikes.join(', ')}. Avoid emphasizing these.\n`;
       }
+
+      // Add cooking proficiency to system prompt
+      if (profile.cookingProficiency) {
+        const proficiencyLabels: Record<number, string> = {
+          1: 'Beginner',
+          2: 'Novice',
+          3: 'Intermediate',
+          4: 'Experienced',
+          5: 'Advanced',
+        };
+        const proficiencyLabel = proficiencyLabels[profile.cookingProficiency] || profile.cookingProficiency.toString();
+        systemPrompt += `\n👨‍🍳 User cooking skill level: ${proficiencyLabel} (${profile.cookingProficiency}/5). Adjust recipe complexity and instructions accordingly. For beginners, provide more detailed step-by-step instructions. For advanced cooks, you can assume knowledge of techniques and terminology.\n`;
+      }
     }
 
     // Generate AI response using Claude

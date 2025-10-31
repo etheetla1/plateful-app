@@ -84,13 +84,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="recipes-new"
+        name="pantry"
         options={{
-          title: 'Recipes',
-          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Recipes" />,
+          title: 'Pantry',
+          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Pantry" />,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name="book"
+              name="basket"
               size={size}
               color={color}
               style={
@@ -103,13 +103,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="pantry"
+        name="recipes-new"
         options={{
-          title: 'Pantry',
-          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Pantry" />,
+          title: 'Recipes',
+          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Recipes" />,
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name="basket"
+              name="book"
               size={size}
               color={color}
               style={

@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Modal,
+  FlatList,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,12 +28,155 @@ import {
   COMMON_RESTRICTIONS,
 } from '@plateful/shared';
 
+// Comprehensive international timezones grouped by region
+const TIMEZONE_GROUPS = [
+  {
+    region: 'Americas',
+    timezones: [
+      { value: 'America/New_York', label: 'Eastern Time (ET)' },
+      { value: 'America/Chicago', label: 'Central Time (CT)' },
+      { value: 'America/Denver', label: 'Mountain Time (MT)' },
+      { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+      { value: 'America/Phoenix', label: 'Arizona (MST)' },
+      { value: 'America/Anchorage', label: 'Alaska (AKST)' },
+      { value: 'Pacific/Honolulu', label: 'Hawaii (HST)' },
+      { value: 'America/Toronto', label: 'Toronto, Canada' },
+      { value: 'America/Vancouver', label: 'Vancouver, Canada' },
+      { value: 'America/Mexico_City', label: 'Mexico City' },
+      { value: 'America/Sao_Paulo', label: 'São Paulo, Brazil' },
+      { value: 'America/Buenos_Aires', label: 'Buenos Aires, Argentina' },
+      { value: 'America/Lima', label: 'Lima, Peru' },
+      { value: 'America/Santiago', label: 'Santiago, Chile' },
+    ],
+  },
+  {
+    region: 'Europe',
+    timezones: [
+      { value: 'Europe/London', label: 'London, UK' },
+      { value: 'Europe/Paris', label: 'Paris, France' },
+      { value: 'Europe/Berlin', label: 'Berlin, Germany' },
+      { value: 'Europe/Rome', label: 'Rome, Italy' },
+      { value: 'Europe/Madrid', label: 'Madrid, Spain' },
+      { value: 'Europe/Amsterdam', label: 'Amsterdam, Netherlands' },
+      { value: 'Europe/Stockholm', label: 'Stockholm, Sweden' },
+      { value: 'Europe/Moscow', label: 'Moscow, Russia' },
+      { value: 'Europe/Istanbul', label: 'Istanbul, Turkey' },
+      { value: 'Europe/Athens', label: 'Athens, Greece' },
+      { value: 'Europe/Dublin', label: 'Dublin, Ireland' },
+      { value: 'Europe/Zurich', label: 'Zurich, Switzerland' },
+    ],
+  },
+  {
+    region: 'Asia',
+    timezones: [
+      { value: 'Asia/Tokyo', label: 'Tokyo, Japan' },
+      { value: 'Asia/Shanghai', label: 'Shanghai, China' },
+      { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+      { value: 'Asia/Singapore', label: 'Singapore' },
+      { value: 'Asia/Seoul', label: 'Seoul, South Korea' },
+      { value: 'Asia/Bangkok', label: 'Bangkok, Thailand' },
+      { value: 'Asia/Jakarta', label: 'Jakarta, Indonesia' },
+      { value: 'Asia/Manila', label: 'Manila, Philippines' },
+      { value: 'Asia/Kolkata', label: 'Mumbai, India' },
+      { value: 'Asia/Dubai', label: 'Dubai, UAE' },
+      { value: 'Asia/Riyadh', label: 'Riyadh, Saudi Arabia' },
+      { value: 'Asia/Tehran', label: 'Tehran, Iran' },
+      { value: 'Asia/Karachi', label: 'Karachi, Pakistan' },
+    ],
+  },
+  {
+    region: 'Pacific',
+    timezones: [
+      { value: 'Australia/Sydney', label: 'Sydney, Australia' },
+      { value: 'Australia/Melbourne', label: 'Melbourne, Australia' },
+      { value: 'Australia/Brisbane', label: 'Brisbane, Australia' },
+      { value: 'Australia/Perth', label: 'Perth, Australia' },
+      { value: 'Pacific/Auckland', label: 'Auckland, New Zealand' },
+      { value: 'Pacific/Fiji', label: 'Fiji' },
+    ],
+  },
+  {
+    region: 'Africa',
+    timezones: [
+      { value: 'Africa/Cairo', label: 'Cairo, Egypt' },
+      { value: 'Africa/Johannesburg', label: 'Johannesburg, South Africa' },
+      { value: 'Africa/Lagos', label: 'Lagos, Nigeria' },
+      { value: 'Africa/Nairobi', label: 'Nairobi, Kenya' },
+      { value: 'Africa/Casablanca', label: 'Casablanca, Morocco' },
+    ],
+  },
+];
+
+// Helper function to get UTC offset for a timezone
+const getUTCOffset = (timezone: string): string => {
+  try {
+    // Use a fixed UTC date to calculate offset consistently
+    const testDate = new Date('2024-06-15T12:00:00Z');
+    
+    // Format the same UTC moment in both UTC and the target timezone
+    const utcTime = testDate.toLocaleString('en-US', {
+      timeZone: 'UTC',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    
+    const tzTime = testDate.toLocaleString('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    
+    // Parse times (format: "HH:MM")
+    const [utcH, utcM] = utcTime.split(':').map(Number);
+    const [tzH, tzM] = tzTime.split(':').map(Number);
+    
+    // Calculate offset in minutes
+    let offsetMinutes = (tzH * 60 + tzM) - (utcH * 60 + utcM);
+    
+    // Normalize to -12 to +12 hours range (handle day rollover)
+    if (offsetMinutes > 12 * 60) {
+      offsetMinutes -= 24 * 60;
+    } else if (offsetMinutes < -12 * 60) {
+      offsetMinutes += 24 * 60;
+    }
+    
+    // Format as UTC+/-HH:MM
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = Math.floor(absMinutes / 60);
+    const minutes = absMinutes % 60;
+    
+    if (minutes === 0) {
+      return `UTC${sign}${hours.toString().padStart(2, '0')}:00`;
+    } else {
+      return `UTC${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    }
+  } catch (error) {
+    return 'UTC';
+  }
+};
+
+// Flatten timezones for searching
+const ALL_TIMEZONES = TIMEZONE_GROUPS.flatMap(group =>
+  group.timezones.map(tz => ({ ...tz, region: group.region }))
+);
+
+// Pre-calculate UTC offsets for all timezones (performed once at module load)
+const TIMEZONE_OFFSETS = new Map<string, string>();
+ALL_TIMEZONES.forEach(tz => {
+  TIMEZONE_OFFSETS.set(tz.value, getUTCOffset(tz.value));
+});
+
 const API_BASE = Platform.select({
   web: 'http://localhost:3001',
   android: 'http://10.0.2.2:3001',
   ios: 'http://localhost:3001',
   default: 'http://localhost:3001',
 });
+
+type TabType = 'info' | 'preferences' | 'macros';
 
 interface TagInputProps {
   value: string[];
@@ -90,12 +236,164 @@ function TagInput({ value, onChange, onTagAdded, placeholder = 'Add item...' }: 
   );
 }
 
+// Timezone Picker Modal Component
+function TimezonePickerModal({
+  visible,
+  onClose,
+  selectedTimezone,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  selectedTimezone: string;
+  onSelect: (timezone: string) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Filter timezones based on search
+  const filteredGroups = TIMEZONE_GROUPS.map(group => ({
+    region: group.region,
+    timezones: group.timezones.filter(tz =>
+      tz.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tz.value.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  })).filter(group => group.timezones.length > 0);
+
+  const handleSelect = (timezone: string) => {
+    onSelect(timezone);
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Timezone</Text>
+                <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+                  <Ionicons name="close" size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.modalSearchContainer}>
+                <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.modalSearchInput}
+                  placeholder="Search timezones..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+
+              <FlatList
+                data={filteredGroups}
+                keyExtractor={(item) => item.region}
+                style={styles.modalList}
+                contentContainerStyle={{ paddingBottom: 20 }}
+                renderItem={({ item: group }) => (
+              <View style={styles.timezoneGroup}>
+                <Text style={styles.timezoneGroupHeader}>{group.region}</Text>
+                {group.timezones.map((tz) => {
+                  const utcOffset = TIMEZONE_OFFSETS.get(tz.value) || 'UTC';
+                  return (
+                    <TouchableOpacity
+                      key={tz.value}
+                      style={[
+                        styles.timezoneModalItem,
+                        selectedTimezone === tz.value && styles.timezoneModalItemSelected,
+                      ]}
+                      onPress={() => handleSelect(tz.value)}
+                    >
+                      <View style={styles.timezoneModalItemContent}>
+                        <Text
+                          style={[
+                            styles.timezoneModalItemText,
+                            selectedTimezone === tz.value && styles.timezoneModalItemTextSelected,
+                          ]}
+                        >
+                          {tz.label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.timezoneModalItemOffset,
+                            selectedTimezone === tz.value && styles.timezoneModalItemOffsetSelected,
+                          ]}
+                        >
+                          {utcOffset}
+                        </Text>
+                      </View>
+                      {selectedTimezone === tz.value && (
+                        <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+              />
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+// Cooking Proficiency Slider Component
+function CookingProficiencySlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const labels = ['Beginner', 'Novice', 'Intermediate', 'Experienced', 'Advanced'];
+  
+  // Create custom slider using TouchableOpacity buttons
+  return (
+    <View style={styles.sliderContainer}>
+      <View style={styles.sliderButtons}>
+        {[1, 2, 3, 4, 5].map((level) => (
+          <TouchableOpacity
+            key={level}
+            style={[
+              styles.sliderButton,
+              value === level && styles.sliderButtonSelected,
+            ]}
+            onPress={() => onChange(level)}
+          >
+            <Text
+              style={[
+                styles.sliderButtonText,
+                value === level && styles.sliderButtonTextSelected,
+              ]}
+            >
+              {level}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={styles.sliderLabel}>{labels[value - 1]}</Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<FoodProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('info');
+  const [timezoneModalVisible, setTimezoneModalVisible] = useState(false);
 
   // Form state
   const [likes, setLikes] = useState<string[]>([]);
@@ -107,10 +405,11 @@ export default function ProfileScreen() {
   const [allergensCustom, setAllergensCustom] = useState<string[]>([]);
   const [restrictionsCustom, setRestrictionsCustom] = useState<string[]>([]);
   const [displayName, setDisplayName] = useState('');
+  const [timezone, setTimezone] = useState('America/New_York');
+  const [cookingProficiency, setCookingProficiency] = useState<number>(3); // Default to Intermediate
 
   useEffect(() => {
     if (user) {
-      // Display name will be loaded from API profile
       loadProfile();
     } else {
       router.replace('/(auth)/sign-in');
@@ -129,7 +428,6 @@ export default function ProfileScreen() {
         const loadedProfile = data.profile;
         setProfile(loadedProfile);
         
-        // Load display name from API profile, fallback to Firebase if not set
         if (loadedProfile.displayName) {
           setDisplayName(loadedProfile.displayName);
         } else if (user?.displayName) {
@@ -138,8 +436,18 @@ export default function ProfileScreen() {
           setDisplayName('');
         }
         
-        // Separate common from custom
-        // Selected items include both common and custom
+        if (loadedProfile.timezone) {
+          setTimezone(loadedProfile.timezone);
+        } else {
+          setTimezone('America/New_York');
+        }
+
+        if (loadedProfile.cookingProficiency) {
+          setCookingProficiency(loadedProfile.cookingProficiency);
+        } else {
+          setCookingProficiency(3); // Default to Intermediate
+        }
+        
         const likesCommon = loadedProfile.likes.filter(l => COMMON_LIKES.includes(l));
         const likesCustom_ = loadedProfile.likes.filter(l => !COMMON_LIKES.includes(l));
         const dislikesCommon = loadedProfile.dislikes.filter(d => COMMON_DISLIKES.includes(d));
@@ -149,7 +457,6 @@ export default function ProfileScreen() {
         const restrictionsCommon = loadedProfile.restrictions.filter(r => COMMON_RESTRICTIONS.includes(r));
         const restrictionsCustom_ = loadedProfile.restrictions.filter(r => !COMMON_RESTRICTIONS.includes(r));
 
-        // Set selected items (common + custom)
         setLikes([...likesCommon, ...likesCustom_]);
         setLikesCustom(likesCustom_);
         setDislikes([...dislikesCommon, ...dislikesCustom_]);
@@ -159,7 +466,6 @@ export default function ProfileScreen() {
         setRestrictions([...restrictionsCommon, ...restrictionsCustom_]);
         setRestrictionsCustom(restrictionsCustom_);
       } else if (response.status === 404) {
-        // No profile exists yet
         setProfile(null);
       }
     } catch (error) {
@@ -177,34 +483,26 @@ export default function ProfileScreen() {
     }
   };
 
-
   const saveProfile = async () => {
     if (!user) return;
 
     try {
       setSaving(true);
       
-      // likes/dislikes/allergens/restrictions already contain all selected items (common + custom)
       const allLikes = likes;
       const allDislikes = dislikes;
       const allAllergens = allergens;
       const allRestrictions = restrictions;
 
       const url = `${API_BASE}/api/profile/${user.uid}`;
-      console.log(`🔄 Saving profile to: ${url}`);
-      console.log(`📦 Profile data:`, { 
-        displayName: displayName.trim() || 'none',
-        likes: allLikes.length, 
-        dislikes: allDislikes.length, 
-        allergens: allAllergens.length, 
-        restrictions: allRestrictions.length 
-      });
-
+      
       const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: displayName.trim() || undefined,
+          timezone: timezone || 'America/New_York',
+          cookingProficiency: cookingProficiency,
           likes: allLikes,
           dislikes: allDislikes,
           allergens: allAllergens,
@@ -212,11 +510,8 @@ export default function ProfileScreen() {
         }),
       });
 
-      console.log(`📡 Response status: ${response.status}`);
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Profile save failed:', response.status, errorText);
         let errorData;
         try {
           errorData = JSON.parse(errorText);
@@ -226,8 +521,6 @@ export default function ProfileScreen() {
         throw new Error(errorData.error || `Failed to save profile: ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log('Profile saved successfully:', data);
       Alert.alert('Success', 'Profile saved successfully!');
       router.back();
     } catch (error) {
@@ -252,7 +545,6 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{title}</Text>
         <View style={styles.pillContainer}>
-          {/* Custom tags appear first, at the top */}
           {customTags.map(item => (
             <TouchableOpacity
               key={`custom-${item}`}
@@ -276,7 +568,6 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           ))}
           
-          {/* Common items */}
           {commonItems.map(item => (
             <TouchableOpacity
               key={item}
@@ -304,20 +595,17 @@ export default function ProfileScreen() {
         <TagInput 
           value={customTags} 
           onChange={(newTags) => {
-            // When tags change, handle additions and removals
             const removed = customTags.filter(t => !newTags.includes(t));
             const added = newTags.filter(t => !customTags.includes(t));
             
             onCustomChange(newTags);
             
-            // Remove from selected if tag was removed
             removed.forEach(tag => {
               if (selected.includes(tag)) {
                 onToggle(tag);
               }
             });
             
-            // Add to selected if tag was newly added
             added.forEach(tag => {
               if (!selected.includes(tag)) {
                 onToggle(tag);
@@ -328,6 +616,11 @@ export default function ProfileScreen() {
         />
       </View>
     );
+  };
+
+  const getSelectedTimezoneLabel = () => {
+    const tz = ALL_TIMEZONES.find(t => t.value === timezone);
+    return tz?.label || 'Select timezone';
   };
 
   if (loading) {
@@ -341,57 +634,127 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <Header title="Food Preferences" showBackButton />
+      <Header title="Profile" showBackButton />
+      
+      {/* Tab Navigation */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'info' && styles.tabActive]}
+          onPress={() => setActiveTab('info')}
+        >
+          <Text style={[styles.tabText, activeTab === 'info' && styles.tabTextActive]}>
+            Info
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'preferences' && styles.tabActive]}
+          onPress={() => setActiveTab('preferences')}
+        >
+          <Text style={[styles.tabText, activeTab === 'preferences' && styles.tabTextActive]}>
+            Preferences
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'macros' && styles.tabActive]}
+          onPress={() => setActiveTab('macros')}
+        >
+          <Text style={[styles.tabText, activeTab === 'macros' && styles.tabTextActive]}>
+            Macros
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* Display Name Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Display Name</Text>
-          <Input
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder="Enter your display name"
-            autoCapitalize="words"
-          />
-        </View>
+        {activeTab === 'info' && (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Display Name</Text>
+              <Input
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Enter your display name"
+                autoCapitalize="words"
+              />
+            </View>
 
-        {renderPillSection(
-          'Likes',
-          COMMON_LIKES,
-          likes,
-          (item) => toggleSelection(item, likes, setLikes),
-          likesCustom,
-          setLikesCustom,
-          (item) => toggleSelection(item, likes, setLikes)
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Timezone (for Streaks)</Text>
+              <Text style={styles.sectionDescription}>
+                Your streak days are calculated based on this timezone
+              </Text>
+              <TouchableOpacity
+                style={styles.timezoneButton}
+                onPress={() => setTimezoneModalVisible(true)}
+              >
+                <Text style={styles.timezoneButtonText}>{getSelectedTimezoneLabel()}</Text>
+                <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Cooking Proficiency</Text>
+              <Text style={styles.sectionDescription}>
+                Help us tailor recipe suggestions to your skill level
+              </Text>
+              <CookingProficiencySlider
+                value={cookingProficiency}
+                onChange={setCookingProficiency}
+              />
+            </View>
+          </>
         )}
 
-        {renderPillSection(
-          'Dislikes',
-          COMMON_DISLIKES,
-          dislikes,
-          (item) => toggleSelection(item, dislikes, setDislikes),
-          dislikesCustom,
-          setDislikesCustom,
-          (item) => toggleSelection(item, dislikes, setDislikes)
+        {activeTab === 'preferences' && (
+          <>
+            {renderPillSection(
+              'Likes',
+              COMMON_LIKES,
+              likes,
+              (item) => toggleSelection(item, likes, setLikes),
+              likesCustom,
+              setLikesCustom,
+              (item) => toggleSelection(item, likes, setLikes)
+            )}
+
+            {renderPillSection(
+              'Dislikes',
+              COMMON_DISLIKES,
+              dislikes,
+              (item) => toggleSelection(item, dislikes, setDislikes),
+              dislikesCustom,
+              setDislikesCustom,
+              (item) => toggleSelection(item, dislikes, setDislikes)
+            )}
+
+            {renderPillSection(
+              'Allergens',
+              COMMON_ALLERGENS,
+              allergens,
+              (item) => toggleSelection(item, allergens, setAllergens),
+              allergensCustom,
+              setAllergensCustom,
+              (item) => toggleSelection(item, allergens, setAllergens)
+            )}
+
+            {renderPillSection(
+              'Restricted Foods',
+              COMMON_RESTRICTIONS,
+              restrictions,
+              (item) => toggleSelection(item, restrictions, setRestrictions),
+              restrictionsCustom,
+              setRestrictionsCustom,
+              (item) => toggleSelection(item, restrictions, setRestrictions)
+            )}
+          </>
         )}
 
-        {renderPillSection(
-          'Allergens',
-          COMMON_ALLERGENS,
-          allergens,
-          (item) => toggleSelection(item, allergens, setAllergens),
-          allergensCustom,
-          setAllergensCustom,
-          (item) => toggleSelection(item, allergens, setAllergens)
-        )}
-
-        {renderPillSection(
-          'Restricted Foods',
-          COMMON_RESTRICTIONS,
-          restrictions,
-          (item) => toggleSelection(item, restrictions, setRestrictions),
-          restrictionsCustom,
-          setRestrictionsCustom,
-          (item) => toggleSelection(item, restrictions, setRestrictions)
+        {activeTab === 'macros' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Macro Targets</Text>
+            <Text style={styles.sectionDescription}>
+              Coming soon! Set your daily macro targets here.
+            </Text>
+          </View>
         )}
 
         <Button
@@ -402,6 +765,13 @@ export default function ProfileScreen() {
           disabled={saving}
         />
       </ScrollView>
+
+      <TimezonePickerModal
+        visible={timezoneModalVisible}
+        onClose={() => setTimezoneModalVisible(false)}
+        selectedTimezone={timezone}
+        onSelect={setTimezone}
+      />
     </View>
   );
 }
@@ -422,6 +792,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
   },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  tabTextActive: {
+    fontWeight: '700',
+    color: colors.primary,
+  },
   scrollView: {
     flex: 1,
   },
@@ -437,6 +832,156 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: 16,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  timezoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  timezoneButtonText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  modalList: {
+    flex: 1,
+  },
+  timezoneGroup: {
+    marginBottom: 24,
+  },
+  timezoneGroupHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  timezoneModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingHorizontal: 20,
+  },
+  timezoneModalItemSelected: {
+    backgroundColor: colors.background,
+  },
+  timezoneModalItemText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+  },
+  timezoneModalItemTextSelected: {
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  timezoneModalItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  timezoneModalItemOffset: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginLeft: 8,
+  },
+  timezoneModalItemOffsetSelected: {
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  sliderContainer: {
+    marginTop: 8,
+  },
+  sliderButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  sliderButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sliderButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  sliderButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  sliderButtonTextSelected: {
+    color: colors.surface,
+  },
+  sliderLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
   },
   pillContainer: {
     flexDirection: 'row',
@@ -515,4 +1060,3 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
 });
-

@@ -136,8 +136,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [streakDays, setStreakDays] = useState<DayInfo[]>([]);
   const [dayStreak, setDayStreak] = useState(0);
+  const [userTimezone, setUserTimezone] = useState<string>('America/New_York'); // Default to Eastern Time
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (): Promise<void> => {
     if (!auth.currentUser) return;
 
     try {
@@ -146,9 +147,15 @@ export default function Dashboard() {
         const data = await response.json();
         if (data.profile?.displayName) {
           setUserName(data.profile.displayName);
-          setLoading(false);
-          return;
         }
+        // Load timezone from profile, default to Eastern Time
+        if (data.profile?.timezone) {
+          setUserTimezone(data.profile.timezone);
+        } else {
+          setUserTimezone('America/New_York');
+        }
+        setLoading(false);
+        return;
       }
     } catch (error) {
       console.error('Failed to load profile:', error);
@@ -161,6 +168,7 @@ export default function Dashboard() {
     } else {
       setUserName('Name');
     }
+    setUserTimezone('America/New_York'); // Default fallback
     setLoading(false);
   }, []);
 
@@ -186,6 +194,45 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [updateUserName]);
 
+  // Helper function to get date string in user's timezone
+  const getDateStringInTimezone = (date: Date, timezone: string): string => {
+    // Use Intl.DateTimeFormat to format date in the user's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper function to get today's date in user's timezone
+  const getTodayInTimezone = (timezone: string): Date => {
+    const now = new Date();
+    // Get current date components in the user's timezone
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1; // 0-indexed
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+    
+    // Create date object in local time but with values from timezone
+    return new Date(year, month, day, 0, 0, 0, 0);
+  };
+
   const loadStreakData = useCallback(async () => {
     if (!auth.currentUser) return;
 
@@ -200,31 +247,39 @@ export default function Dashboard() {
       const data = await response.json();
       const recipes = data.recipes || [];
 
-      // Group recipes by date (YYYY-MM-DD)
+      // Group recipes by date (YYYY-MM-DD) in user's timezone
       const recipesByDate = new Set<string>();
       recipes.forEach((recipe: any) => {
         if (recipe.createdAt) {
           const date = new Date(recipe.createdAt);
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = getDateStringInTimezone(date, userTimezone);
           recipesByDate.add(dateStr);
         }
       });
 
-      // Generate last 7 days with actual calendar dates
+      // Generate last 7 days with actual calendar dates in user's timezone
       const days: DayInfo[] = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = getTodayInTimezone(userTimezone);
 
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         
-        const dateStr = date.toISOString().split('T')[0];
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dateStr = getDateStringInTimezone(date, userTimezone);
+        const dayName = date.toLocaleDateString('en-US', { 
+          weekday: 'short',
+          timeZone: userTimezone,
+        });
+        const dayOfMonth = parseInt(
+          new Intl.DateTimeFormat('en-US', {
+            timeZone: userTimezone,
+            day: 'numeric',
+          }).format(date)
+        );
         
         days.push({
           date,
-          dayOfMonth: date.getDate(),
+          dayOfMonth,
           dayName,
           completed: recipesByDate.has(dateStr),
         });
@@ -232,9 +287,9 @@ export default function Dashboard() {
 
       setStreakDays(days);
 
-      // Calculate streak (consecutive days from today backwards)
+      // Calculate streak (consecutive days from today backwards) in user's timezone
       let streak = 0;
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = getDateStringInTimezone(today, userTimezone);
       
       // If today has activity, start counting from today
       // Otherwise start from yesterday
@@ -244,7 +299,7 @@ export default function Dashboard() {
       }
 
       while (streak < 365) { // Cap at 365 days
-        const checkDateStr = checkDate.toISOString().split('T')[0];
+        const checkDateStr = getDateStringInTimezone(checkDate, userTimezone);
         if (recipesByDate.has(checkDateStr)) {
           streak++;
           checkDate.setDate(checkDate.getDate() - 1);
@@ -257,35 +312,54 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to load streak data:', error);
       // Set default empty streak on error
-      const today = new Date();
+      const today = getTodayInTimezone(userTimezone);
       const days: DayInfo[] = [];
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
+        const dayOfMonth = parseInt(
+          new Intl.DateTimeFormat('en-US', {
+            timeZone: userTimezone,
+            day: 'numeric',
+          }).format(date)
+        );
         days.push({
           date,
-          dayOfMonth: date.getDate(),
-          dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+          dayOfMonth,
+          dayName: date.toLocaleDateString('en-US', { 
+            weekday: 'short',
+            timeZone: userTimezone,
+          }),
           completed: false,
         });
       }
       setStreakDays(days);
       setDayStreak(0);
     }
-  }, []);
+  }, [userTimezone]);
 
-  // Update display name and streak when screen comes into focus (e.g., after updating in profile)
+  // Update display name, timezone, and streak when screen comes into focus (e.g., after updating in profile)
   useFocusEffect(
     useCallback(() => {
-      loadProfile();
-      loadStreakData();
+      // Load profile first (which sets timezone), then load streak data
+      loadProfile().then(() => {
+        loadStreakData();
+      }).catch(() => {
+        // Even if profile load fails, try to load streak with default timezone
+        loadStreakData();
+      });
     }, [loadProfile, loadStreakData])
   );
 
   useEffect(() => {
     if (auth.currentUser) {
-      loadProfile();
-      loadStreakData();
+      // Load profile first (which sets timezone), then load streak data
+      loadProfile().then(() => {
+        loadStreakData();
+      }).catch(() => {
+        // Even if profile load fails, try to load streak with default timezone
+        loadStreakData();
+      });
     }
   }, [loadProfile, loadStreakData]);
 
