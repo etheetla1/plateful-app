@@ -377,7 +377,7 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Header title="Home" />
+      <Header showLogo={true} />
       
       {/* Combined Welcome & Streak Card */}
       <View style={styles.welcomeCard}>
