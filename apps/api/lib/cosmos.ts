@@ -8,6 +8,7 @@ const containers = {
   chatMessages: null as Container | null,
   userProfiles: null as Container | null,
   recipes: null as Container | null,
+  pantries: null as Container | null,
 };
 
 /**
@@ -31,6 +32,7 @@ export function initCosmosDB() {
     containers.chatMessages = database.container('chat-messages');
     containers.userProfiles = database.container('user-profiles');
     containers.recipes = database.container('recipes');
+    containers.pantries = database.container('pantries');
 
     console.log('✅ Cosmos DB initialized successfully');
     return cosmosClient;

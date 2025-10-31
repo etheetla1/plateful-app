@@ -103,6 +103,25 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="pantry"
+        options={{
+          title: 'Pantry',
+          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Pantry" />,
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name="basket"
+              size={size}
+              color={color}
+              style={
+                focused
+                  ? { transform: [{ scale: 1.1 }] }
+                  : {}
+              }
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="chat"
         options={{
           title: 'Chat',
