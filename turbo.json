@@ -6,10 +6,6 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**", ".expo/**"]
     },
-    "mobile#build": {
-      "dependsOn": ["@plateful/shared#build", "@plateful/ui#build"],
-      "outputs": [".expo/**"]
-    },
     "dev": {
       "cache": false,
       "persistent": true
