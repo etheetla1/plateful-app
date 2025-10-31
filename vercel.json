@@ -1,8 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build",
-  "installCommand": "npm ci --workspaces --include-workspace-root",
-  "outputDirectory": ".vercel_build_output/public",
+  "buildCommand": "pnpm run build:api",
+  "installCommand": "pnpm install",
+  "outputDirectory": "apps/api/api",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",
