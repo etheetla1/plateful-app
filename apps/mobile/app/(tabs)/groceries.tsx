@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, semanticColors } from '@plateful/shared';
 import type { GroceryList, GroceryItem, PantryItem } from '@plateful/shared';
 import { findPantryMatch } from '@plateful/shared';
@@ -49,6 +50,15 @@ export default function Groceries() {
       loadPantryItems();
     }
   }, []);
+
+  // Reload lists when screen comes into focus (e.g., after adding items from recipe)
+  useFocusEffect(
+    useCallback(() => {
+      if (auth.currentUser && viewMode === 'lists') {
+        loadLists();
+      }
+    }, [viewMode])
+  );
 
   const loadLists = async () => {
     if (!auth.currentUser) return;

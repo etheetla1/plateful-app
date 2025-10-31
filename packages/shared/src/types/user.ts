@@ -16,6 +16,7 @@ export interface UserProfile extends User {
 export interface FoodProfile {
   id: string;
   userID: string;
+  displayName?: string; // Display name stored in Cosmos DB
   likes: string[];
   dislikes: string[];
   allergens: string[];

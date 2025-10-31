@@ -17,7 +17,6 @@ import Header from '../src/components/Header';
 import { auth } from '../src/config/firebase';
 import type { FoodProfile } from '@plateful/shared';
 import { colors } from '@plateful/shared';
-import { updateProfile } from 'firebase/auth';
 import { Input } from '@plateful/ui';
 import {
   COMMON_LIKES,
@@ -111,7 +110,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || '');
+      // Display name will be loaded from API profile
       loadProfile();
     } else {
       router.replace('/(auth)/sign-in');
@@ -129,6 +128,15 @@ export default function ProfileScreen() {
         const data = await response.json();
         const loadedProfile = data.profile;
         setProfile(loadedProfile);
+        
+        // Load display name from API profile, fallback to Firebase if not set
+        if (loadedProfile.displayName) {
+          setDisplayName(loadedProfile.displayName);
+        } else if (user?.displayName) {
+          setDisplayName(user.displayName);
+        } else {
+          setDisplayName('');
+        }
         
         // Separate common from custom
         // Selected items include both common and custom
@@ -176,12 +184,6 @@ export default function ProfileScreen() {
     try {
       setSaving(true);
       
-      // Update display name if changed
-      if (displayName.trim() && displayName !== user.displayName) {
-        await updateProfile(user, { displayName: displayName.trim() });
-        console.log('✅ Display name updated');
-      }
-      
       // likes/dislikes/allergens/restrictions already contain all selected items (common + custom)
       const allLikes = likes;
       const allDislikes = dislikes;
@@ -191,6 +193,7 @@ export default function ProfileScreen() {
       const url = `${API_BASE}/api/profile/${user.uid}`;
       console.log(`🔄 Saving profile to: ${url}`);
       console.log(`📦 Profile data:`, { 
+        displayName: displayName.trim() || 'none',
         likes: allLikes.length, 
         dislikes: allDislikes.length, 
         allergens: allAllergens.length, 
@@ -201,6 +204,7 @@ export default function ProfileScreen() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          displayName: displayName.trim() || undefined,
           likes: allLikes,
           dislikes: allDislikes,
           allergens: allAllergens,

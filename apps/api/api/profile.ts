@@ -61,7 +61,7 @@ app.put('/:userID', async (c) => {
     console.log(`📝 Processing profile update for user: ${userID}`);
     
     const body = await c.req.json<Partial<FoodProfile>>();
-    const { likes = [], dislikes = [], allergens = [], restrictions = [] } = body;
+    const { likes = [], dislikes = [], allergens = [], restrictions = [], displayName } = body;
 
     const container = getContainer('userProfiles');
     if (!container) {
@@ -91,6 +91,7 @@ app.put('/:userID', async (c) => {
     const profile: FoodProfile = {
       id: userID,
       userID,
+      displayName: displayName !== undefined ? (displayName.trim() || undefined) : existingProfile?.displayName,
       likes: Array.isArray(likes) ? likes : [],
       dislikes: Array.isArray(dislikes) ? dislikes : [],
       allergens: Array.isArray(allergens) ? allergens : [],

@@ -1,20 +1,177 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
 import Header from '../../src/components/Header';
+import { auth } from '../../src/config/firebase';
+
+const API_BASE = Platform.select({
+  web: 'http://localhost:3001',
+  android: 'http://10.0.2.2:3001',
+  ios: 'http://localhost:3001',
+  default: 'http://localhost:3001',
+});
+
+interface DayInfo {
+  date: Date;
+  dayOfMonth: number;
+  dayName: string;
+  completed: boolean;
+}
+
+// Streak Day Component with Gold Sparkles
+function StreakDay({ dayInfo, dayIndex }: { dayInfo: DayInfo; dayIndex: number }) {
+  const sparkle1 = useRef(new Animated.Value(0)).current;
+  const sparkle2 = useRef(new Animated.Value(0)).current;
+  const sparkle3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!dayInfo.completed) return;
+
+    const createSparkleAnimation = (animValue: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(animValue, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(animValue, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.delay(1000),
+        ])
+      );
+    };
+
+    const anim1 = createSparkleAnimation(sparkle1, dayIndex * 100);
+    const anim2 = createSparkleAnimation(sparkle2, dayIndex * 100 + 150);
+    const anim3 = createSparkleAnimation(sparkle3, dayIndex * 100 + 300);
+
+    anim1.start();
+    anim2.start();
+    anim3.start();
+
+    return () => {
+      anim1.stop();
+      anim2.stop();
+      anim3.stop();
+    };
+  }, [dayInfo.completed, dayIndex]);
+
+  return (
+    <View style={styles.dayContainer}>
+      <Text style={styles.dayNameLabel}>{dayInfo.dayName}</Text>
+      <View
+        style={[
+          styles.dayCircle,
+          dayInfo.completed ? styles.dayCircleCompleted : styles.dayCircleIncomplete,
+        ]}
+      >
+        {dayInfo.completed ? (
+          <>
+            <Text style={styles.dayNumberCompleted}>{dayInfo.dayOfMonth}</Text>
+            <View style={styles.streakSparkleContainer}>
+              <Animated.View
+                style={[
+                  styles.streakSparkleDot,
+                  styles.streakSparkle1,
+                  {
+                    opacity: sparkle1,
+                    transform: [{
+                      scale: sparkle1.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 1.3],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.streakSparkleDot,
+                  styles.streakSparkle2,
+                  {
+                    opacity: sparkle2,
+                    transform: [{
+                      scale: sparkle2.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 1.3],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.streakSparkleDot,
+                  styles.streakSparkle3,
+                  {
+                    opacity: sparkle3,
+                    transform: [{
+                      scale: sparkle3.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 1.3],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            </View>
+          </>
+        ) : (
+          <Text style={styles.dayNumber}>{dayInfo.dayOfMonth}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
 
 export default function Dashboard() {
   const [userName, setUserName] = useState('Name');
   const [loading, setLoading] = useState(true);
+  const [streakDays, setStreakDays] = useState<DayInfo[]>([]);
+  const [dayStreak, setDayStreak] = useState(0);
 
-  useEffect(() => {
-    // Get current user immediately
+  const loadProfile = useCallback(async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/profile/${auth.currentUser.uid}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.profile?.displayName) {
+          setUserName(data.profile.displayName);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+    }
+
+    // Fallback to Firebase Auth if not in profile
     const currentUser = getCurrentUser();
     if (currentUser?.displayName) {
       setUserName(currentUser.displayName);
-      setLoading(false);
+    } else {
+      setUserName('Name');
     }
+    setLoading(false);
+  }, []);
+
+  const updateUserName = useCallback(() => {
+    // Try to get from profile first
+    loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() => {
+    // Get current user immediately
+    updateUserName();
 
     // Listen for auth state changes
     const unsubscribe = onAuthStateChange((user) => {
@@ -27,17 +184,110 @@ export default function Dashboard() {
     });
 
     return () => unsubscribe();
+  }, [updateUserName]);
+
+  const loadStreakData = useCallback(async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      // Fetch recipes to calculate streak
+      const response = await fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load recipes');
+      }
+
+      const data = await response.json();
+      const recipes = data.recipes || [];
+
+      // Group recipes by date (YYYY-MM-DD)
+      const recipesByDate = new Set<string>();
+      recipes.forEach((recipe: any) => {
+        if (recipe.createdAt) {
+          const date = new Date(recipe.createdAt);
+          const dateStr = date.toISOString().split('T')[0];
+          recipesByDate.add(dateStr);
+        }
+      });
+
+      // Generate last 7 days with actual calendar dates
+      const days: DayInfo[] = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        
+        const dateStr = date.toISOString().split('T')[0];
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        
+        days.push({
+          date,
+          dayOfMonth: date.getDate(),
+          dayName,
+          completed: recipesByDate.has(dateStr),
+        });
+      }
+
+      setStreakDays(days);
+
+      // Calculate streak (consecutive days from today backwards)
+      let streak = 0;
+      const todayStr = today.toISOString().split('T')[0];
+      
+      // If today has activity, start counting from today
+      // Otherwise start from yesterday
+      let checkDate = new Date(today);
+      if (!recipesByDate.has(todayStr)) {
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+
+      while (streak < 365) { // Cap at 365 days
+        const checkDateStr = checkDate.toISOString().split('T')[0];
+        if (recipesByDate.has(checkDateStr)) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      setDayStreak(streak);
+    } catch (error) {
+      console.error('Failed to load streak data:', error);
+      // Set default empty streak on error
+      const today = new Date();
+      const days: DayInfo[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        days.push({
+          date,
+          dayOfMonth: date.getDate(),
+          dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+          completed: false,
+        });
+      }
+      setStreakDays(days);
+      setDayStreak(0);
+    }
   }, []);
-  const dayStreak = 2;
-  const weekDays = [
-    { day: 1, completed: true },
-    { day: 2, completed: true },
-    { day: 3, completed: false },
-    { day: 4, completed: false },
-    { day: 5, completed: false },
-    { day: 6, completed: false },
-    { day: 7, completed: false },
-  ];
+
+  // Update display name and streak when screen comes into focus (e.g., after updating in profile)
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+      loadStreakData();
+    }, [loadProfile, loadStreakData])
+  );
+
+  useEffect(() => {
+    if (auth.currentUser) {
+      loadProfile();
+      loadStreakData();
+    }
+  }, [loadProfile, loadStreakData]);
 
   const caloriesData = [
     { day: 'Mon', value: 2000, isBlue: false },
@@ -60,22 +310,14 @@ export default function Dashboard() {
         <View style={styles.welcomeStreakContainer}>
           <Text style={styles.greeting}>Hi, {userName}</Text>
           <View style={styles.streakSection}>
-            <Text style={styles.streakText}>{dayStreak} day streak</Text>
+            <Text style={styles.streakText}>{dayStreak} {dayStreak === 1 ? 'day' : 'days'} streak</Text>
             <View style={styles.daysContainer}>
-              {weekDays.map((item) => (
-                <View
-                  key={item.day}
-                  style={[
-                    styles.dayCircle,
-                    item.completed ? styles.dayCircleCompleted : styles.dayCircleIncomplete,
-                  ]}
-                >
-                  {item.completed ? (
-                    <Text style={styles.checkmark}>✓</Text>
-                  ) : (
-                    <Text style={styles.dayNumber}>{item.day}</Text>
-                  )}
-                </View>
+              {streakDays.map((dayInfo, index) => (
+                <StreakDay
+                  key={index}
+                  dayInfo={dayInfo}
+                  dayIndex={index}
+                />
               ))}
             </View>
           </View>
@@ -200,6 +442,17 @@ const styles = StyleSheet.create({
   daysContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+  dayContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dayNameLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    fontWeight: '500',
   },
   dayCircle: {
     width: 40,
@@ -208,24 +461,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
+    position: 'relative',
+    overflow: 'visible',
   },
   dayCircleCompleted: {
-    backgroundColor: colors.secondary,
-    borderColor: colors.secondary,
+    backgroundColor: '#FFD700', // Gold like the button - flat color
+    borderWidth: 0,
+    overflow: 'visible',
+    // Shadow for the whole circle
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   dayCircleIncomplete: {
     backgroundColor: colors.surface,
     borderColor: colors.primary,
   },
-  checkmark: {
-    color: colors.surface,
-    fontSize: 20,
-    fontWeight: 'bold',
+  streakSparkleContainer: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  streakSparkleDot: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    backgroundColor: 'rgba(255, 215, 0, 1)', // Gold sparkle
+    borderRadius: 2,
+  },
+  streakSparkle1: {
+    top: '10%',
+    left: '15%',
+  },
+  streakSparkle2: {
+    top: '20%',
+    right: '15%',
+  },
+  streakSparkle3: {
+    bottom: '15%',
+    left: '50%',
   },
   dayNumber: {
     color: colors.primary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  dayNumberCompleted: {
+    color: '#1a1a1a', // Dark text like gold button
+    fontSize: 16,
+    fontWeight: '700',
+    zIndex: 1,
   },
   sectionHeader: {
     flexDirection: 'row',
