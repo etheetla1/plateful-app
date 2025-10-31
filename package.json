@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
-    "build": "turbo run build && mkdir -p .vercel_build_output api && cp -r public .vercel_build_output/ && cp -r apps/api/api/* api/",
+    "build": "turbo run build --filter=api && mkdir -p .vercel_build_output api && cp -r public .vercel_build_output/ && cp -r apps/api/api/* api/",
     "build:api": "npm run build --workspace=api",
     "clean": "turbo run clean",
     "type-check": "turbo run type-check",
@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "prettier": "^3.1.1",
-    "turbo": "^1.11.2",
     "typescript": "^5.3.3"
   },
   "engines": {
@@ -39,6 +38,7 @@
   "dependencies": {
     "expo": "~54.0.13",
     "react": "19.1.0",
-    "react-native": "0.81.4"
+    "react-native": "0.81.4",
+    "turbo": "^1.11.2"
   }
 }
