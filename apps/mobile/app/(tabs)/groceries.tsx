@@ -8,6 +8,7 @@ import {
   ScrollView 
 } from 'react-native';
 import { colors } from '../../theme/colors';
+import Header from '../../src/components/Header';
 
 // Mock data matching Figma design
 const GROCERY_ITEMS = [
@@ -58,11 +59,9 @@ export default function Groceries() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Your Ingredients</Text>
-        
-        {/* Tabs */}
+      <Header title="Your Ingredients" />
+      {/* Tabs */}
+      <View style={styles.tabContainerWrapper}>
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'grocery' && styles.tabActive]}
@@ -115,29 +114,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
+  tabContainerWrapper: {
     backgroundColor: colors.surface,
-    paddingTop: 16,
-    paddingHorizontal: 20,
-    paddingBottom: 0,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
   },
   tabContainer: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: -1,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   tab: {
     flex: 1,

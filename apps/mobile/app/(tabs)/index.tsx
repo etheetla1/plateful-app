@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
 import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
+import Header from '../../src/components/Header';
 
 export default function Dashboard() {
   const [userName, setUserName] = useState('Name');
@@ -52,15 +53,12 @@ export default function Dashboard() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Header */}
+      <Header />
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.greeting}>Welcome back,</Text>
           <Text style={styles.userName}>{userName}</Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
-          <Text style={styles.profileIcon}>👤</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Day Streak */}
@@ -159,11 +157,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 8,
     backgroundColor: colors.surface,
   },
   headerContent: {
@@ -178,17 +173,6 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: colors.textPrimary,
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileIcon: {
-    fontSize: 24,
   },
   card: {
     backgroundColor: colors.surface,

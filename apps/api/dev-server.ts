@@ -12,6 +12,7 @@ import chatRoutes from './api/chat';
 import mockChatRoutes from './api/mock-chat';
 import generateRecipeRoutes from './api/generate-recipe';
 import extractIntentRoutes from './api/extract-intent';
+import profileRoutes from './api/profile';
 
 // Load environment variables
 dotenv.config();
@@ -39,6 +40,7 @@ if (isCosmosAvailable()) {
 
 app.route('/api/generate-recipe', generateRecipeRoutes);
 app.route('/api/extract-intent', extractIntentRoutes);
+app.route('/api/profile', profileRoutes);
 
 // Initialize Anthropic client
 const client = new Anthropic({ 

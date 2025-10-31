@@ -1,14 +1,34 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { RecipeData } from '@plateful/shared';
+import type { RecipeData, FoodProfile } from '@plateful/shared';
 
 /**
  * Format scraped recipe content into structured JSON
  */
-export async function formatRecipe(scrapedContent: string, sourceUrl: string): Promise<RecipeData> {
+export async function formatRecipe(scrapedContent: string, sourceUrl: string, profile?: FoodProfile | null): Promise<RecipeData> {
   // Initialize client with current environment variables
   const client = new Anthropic({ 
     apiKey: process.env.ANTHROPIC_API_KEY 
   });
+
+  // Build profile compliance check
+  let complianceNote = '';
+  if (profile) {
+    const restrictions: string[] = [];
+    if (profile.allergens && profile.allergens.length > 0) {
+      restrictions.push(`allergens: ${profile.allergens.join(', ')}`);
+    }
+    if (profile.restrictions && profile.restrictions.length > 0) {
+      restrictions.push(`restrictions: ${profile.restrictions.join(', ')}`);
+    }
+    if (restrictions.length > 0) {
+      complianceNote = `\n\nIMPORTANT COMPLIANCE CHECK:\nVerify this recipe does NOT contain: ${restrictions.join(', ')}. If it does, note this in the description.`;
+    }
+    
+    const likesNote = profile.likes && profile.likes.length > 0
+      ? `\n\nUSER PREFERENCES: The user likes: ${profile.likes.join(', ')}. If this recipe aligns with any of these preferences, you may mention it briefly in the description.`
+      : '';
+    complianceNote += likesNote;
+  }
 
   const prompt = `You are a recipe formatter. Your task is to extract and structure recipe information from scraped web content.
 
@@ -19,7 +39,7 @@ IMPORTANT RULES:
 4. If serving count is missing, estimate it and mark as "(estimated by AI)"
 5. If nutrition data is missing, estimate it and mark as "(estimated by AI)"
 6. Calories MUST be per portion, not total
-7. Keep ingredients and instructions concise and clear
+7. Keep ingredients and instructions concise and clear${complianceNote}
 
 Scraped content from ${sourceUrl}:
 ---

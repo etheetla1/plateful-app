@@ -1,10 +1,10 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ChatMessage, IntentExtractionResult } from '@plateful/shared';
+import type { ChatMessage, IntentExtractionResult, FoodProfile } from '@plateful/shared';
 
 /**
  * Extract the user's decided dish and generate a search query from the conversation
  */
-export async function extractIntent(messages: ChatMessage[]): Promise<IntentExtractionResult> {
+export async function extractIntent(messages: ChatMessage[], profile?: FoodProfile | null): Promise<IntentExtractionResult> {
   // Initialize client with current environment variables
   const client = new Anthropic({ 
     apiKey: process.env.ANTHROPIC_API_KEY 
@@ -15,7 +15,30 @@ export async function extractIntent(messages: ChatMessage[]): Promise<IntentExtr
     .map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
     .join('\n');
 
-  const prompt = `You are analyzing a conversation about food and meal planning. Based on the conversation below, determine the user's intent and categorize it into one of four levels.
+  // Build profile context if available
+  let profileContext = '';
+  if (profile) {
+    const preferences: string[] = [];
+    if (profile.likes && profile.likes.length > 0) {
+      preferences.push(`Likes: ${profile.likes.join(', ')}`);
+    }
+    if (profile.dislikes && profile.dislikes.length > 0) {
+      preferences.push(`Dislikes: ${profile.dislikes.join(', ')}`);
+    }
+    if (profile.allergens && profile.allergens.length > 0) {
+      preferences.push(`Allergens to avoid: ${profile.allergens.join(', ')}`);
+    }
+    if (profile.restrictions && profile.restrictions.length > 0) {
+      preferences.push(`Dietary restrictions: ${profile.restrictions.join(', ')}`);
+    }
+    
+    if (preferences.length > 0) {
+      profileContext = `\n\nUSER FOOD PREFERENCES:\n${preferences.join('\n')}\n\nNote: When generating the explanation, mention relevant preferences if they align with the dish being discussed. For example, if the user likes "spicy" and discusses a spicy dish, note this in the explanation.`;
+    }
+  }
+
+  const prompt = `You are analyzing a conversation about food and meal planning. Based on the conversation below, determine the user's intent and categorize it into one of four levels.${profileContext}
+
 
 Conversation:
 ${conversationText}

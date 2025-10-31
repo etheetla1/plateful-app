@@ -12,3 +12,14 @@ export interface UserProfile extends User {
     theme: 'light' | 'dark' | 'auto';
   };
 }
+
+export interface FoodProfile {
+  id: string;
+  userID: string;
+  likes: string[];
+  dislikes: string[];
+  allergens: string[];
+  restrictions: string[];
+  createdAt: string;
+  updatedAt: string;
+}

@@ -17,6 +17,8 @@ import { Button } from '@plateful/ui';
 import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 import type { IntentExtractionResult } from '@plateful/shared';
+import { auth } from '../../src/config/firebase';
+import Header from '../../src/components/Header';
 
 // API endpoint - platform aware
 const API_BASE = Platform.select({
@@ -25,9 +27,6 @@ const API_BASE = Platform.select({
   ios: 'http://localhost:3001',      // iOS simulator
   default: 'http://localhost:3001',
 });
-
-// Mock user ID for development
-const MOCK_USER_ID = 'user-dev-001';
 
 export default function ChatScreen() {
   const [conversationID, setConversationID] = useState<string | null>(null);
@@ -44,7 +43,9 @@ export default function ChatScreen() {
 
   // Initialize conversation
   useEffect(() => {
-    startNewConversation();
+    if (auth.currentUser) {
+      startNewConversation();
+    }
   }, []);
 
   // Sparkle animation effect
@@ -76,6 +77,11 @@ export default function ChatScreen() {
   }, [currentIntent?.certaintyLevel]);
 
   const startNewConversation = async () => {
+    if (!auth.currentUser) {
+      Alert.alert('Error', 'Please sign in to use chat');
+      return;
+    }
+
     try {
       // Clear current intent when starting new conversation
       setCurrentIntent(null);
@@ -83,7 +89,7 @@ export default function ChatScreen() {
       const response = await fetch(`${API_BASE}/api/chat/conversation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userID: MOCK_USER_ID }),
+        body: JSON.stringify({ userID: auth.currentUser.uid }),
       });
 
       if (!response.ok) {
@@ -211,6 +217,7 @@ export default function ChatScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationID: conversationID,
+          userID: auth.currentUser?.uid,
         }),
       });
 
@@ -233,7 +240,7 @@ export default function ChatScreen() {
   };
 
   const extractCurrentIntent = async () => {
-    if (!conversationID || messages.length === 0) return;
+    if (!conversationID || messages.length === 0 || !auth.currentUser) return;
 
     try {
       const response = await fetch(`${API_BASE}/api/extract-intent`, {
@@ -241,7 +248,7 @@ export default function ChatScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationID,
-          userID: MOCK_USER_ID,
+          userID: auth.currentUser.uid,
         }),
       });
 
@@ -256,7 +263,7 @@ export default function ChatScreen() {
   };
 
   const generateRecipe = async () => {
-    if (!conversationID) return;
+    if (!conversationID || !auth.currentUser) return;
 
     setGeneratingRecipe(true);
 
@@ -268,7 +275,7 @@ export default function ChatScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationID,
-          userID: MOCK_USER_ID,
+          userID: auth.currentUser.uid,
         }),
       });
 
@@ -327,13 +334,11 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Ionicons name="chatbubbles" size={24} color={colors.primary} />
-          <Text style={styles.title}>Recipe Chat</Text>
-        </View>
+      <Header title="Recipe Chat" />
+      <View style={styles.newChatContainer}>
         <TouchableOpacity onPress={startNewConversation} style={styles.newChatButton}>
           <Ionicons name="add-circle-outline" size={24} color={colors.primary} />
+          <Text style={styles.newChatText}>New Chat</Text>
         </TouchableOpacity>
       </View>
 
@@ -510,27 +515,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
+  newChatContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerContent: {
+  newChatButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    padding: 8,
+    gap: 8,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  newChatButton: {
-    padding: 4,
+  newChatText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '500',
   },
   intentBanner: {
     backgroundColor: colors.surface,

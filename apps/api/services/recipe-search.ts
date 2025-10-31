@@ -1,16 +1,31 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { RecipeSearchResult } from '@plateful/shared';
+import type { RecipeSearchResult, FoodProfile } from '@plateful/shared';
 
 /**
  * Search for a recipe using Anthropic's web search
  */
-export async function searchRecipe(searchQuery: string): Promise<RecipeSearchResult> {
+export async function searchRecipe(searchQuery: string, profile?: FoodProfile | null): Promise<RecipeSearchResult> {
   // Initialize client with current environment variables
   const client = new Anthropic({ 
     apiKey: process.env.ANTHROPIC_API_KEY 
   });
 
   console.log(`Searching for recipe: ${searchQuery}`);
+
+  // Build dietary restrictions context for search
+  let restrictionsNote = '';
+  if (profile) {
+    const restrictions: string[] = [];
+    if (profile.allergens && profile.allergens.length > 0) {
+      restrictions.push(`allergen-free: ${profile.allergens.join(', ')}`);
+    }
+    if (profile.restrictions && profile.restrictions.length > 0) {
+      restrictions.push(`without: ${profile.restrictions.join(', ')}`);
+    }
+    if (restrictions.length > 0) {
+      restrictionsNote = `\n\nIMPORTANT: The recipe must be ${restrictions.join(', ')}. Filter out any recipes that contain these.`;
+    }
+  }
 
   const response = await (client.messages.create as any)({
     model: "claude-haiku-4-5-20251001",
@@ -37,7 +52,8 @@ export async function searchRecipe(searchQuery: string): Promise<RecipeSearchRes
     ],
     messages: [{
       role: "user",
-      content: `Search for: ${searchQuery}
+      content: `Search for: ${searchQuery}${restrictionsNote}
+
 
 Find a specific recipe page URL (not a homepage or category page) from any reliable cooking website.
 

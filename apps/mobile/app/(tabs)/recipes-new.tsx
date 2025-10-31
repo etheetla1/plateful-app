@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe } from '@plateful/shared';
+import { auth } from '../../src/config/firebase';
+import Header from '../../src/components/Header';
 
 // API endpoint - platform aware
 const API_BASE = Platform.select({
@@ -21,8 +23,6 @@ const API_BASE = Platform.select({
   default: 'http://localhost:3001',
 });
 
-const MOCK_USER_ID = 'user-dev-001';
-
 export default function RecipesScreen() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
@@ -30,12 +30,16 @@ export default function RecipesScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    loadRecipes();
+    if (auth.currentUser) {
+      loadRecipes();
+    }
   }, []);
 
   const loadRecipes = async () => {
+    if (!auth.currentUser) return;
+
     try {
-      const response = await fetch(`${API_BASE}/api/generate-recipe/user/${MOCK_USER_ID}`);
+      const response = await fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`);
       
       if (!response.ok) {
         throw new Error('Failed to load recipes');
@@ -57,12 +61,14 @@ export default function RecipesScreen() {
   };
 
   const toggleSaveRecipe = async (recipe: Recipe) => {
+    if (!auth.currentUser) return;
+
     try {
       const response = await fetch(`${API_BASE}/api/generate-recipe/${recipe.recipeID}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userID: MOCK_USER_ID,
+          userID: auth.currentUser.uid,
           isSaved: !recipe.isSaved,
         }),
       });
@@ -214,17 +220,18 @@ export default function RecipesScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
-      <View style={styles.header}>
-        <Text style={styles.title}>My Recipes</Text>
-        <Text style={styles.subtitle}>
-          {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} found
-        </Text>
-      </View>
+    <View style={styles.container}>
+      <Header title="My Recipes" />
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={styles.header}>
+          <Text style={styles.subtitle}>
+            {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} found
+          </Text>
+        </View>
 
       {recipes.length === 0 ? (
         <View style={styles.emptyState}>
@@ -275,7 +282,8 @@ export default function RecipesScreen() {
           ))}
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -290,17 +298,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
   },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     padding: 20,
   },
   header: {
     marginBottom: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#212121',
-    marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,

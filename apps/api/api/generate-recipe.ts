@@ -4,7 +4,7 @@ import { extractIntent } from '../services/intent-extraction';
 import { searchRecipe } from '../services/recipe-search';
 import { scrapeRecipeContent } from '../services/recipe-scraper';
 import { formatRecipe } from '../services/recipe-formatter';
-import type { ChatMessage, ChatConversation, Recipe, RecipeGenerateRequest } from '@plateful/shared';
+import type { ChatMessage, ChatConversation, Recipe, RecipeGenerateRequest, FoodProfile } from '@plateful/shared';
 
 const app = new Hono();
 
@@ -35,6 +35,21 @@ app.post('/', async (c) => {
 
     console.log(`🔄 Starting recipe generation for conversation ${conversationID}`);
 
+    // Step 0: Fetch user profile (if available)
+    let profile: FoodProfile | null = null;
+    const profileContainer = getContainer('userProfiles');
+    if (profileContainer) {
+      try {
+        const { resource } = await profileContainer.item(userID, userID).read<FoodProfile>();
+        profile = resource || null;
+        if (profile) {
+          console.log(`✅ User profile found with ${profile.likes.length} likes, ${profile.allergens.length} allergens`);
+        }
+      } catch (error) {
+        console.log(`ℹ️ No profile found for user ${userID}, proceeding without preferences`);
+      }
+    }
+
     // Step 1: Fetch conversation messages
     const messagesContainer = getContainer('chatMessages');
     if (!messagesContainer) {
@@ -56,7 +71,7 @@ app.post('/', async (c) => {
 
     // Step 2: Extract intent
     console.log(`🧠 Extracting intent from conversation...`);
-    const intent = await extractIntent(messages);
+    const intent = await extractIntent(messages, profile);
     console.log(`✅ Intent extracted: ${intent.dish} (status: ${intent.status})`);
 
     // Check if conversation is off-topic
@@ -90,7 +105,7 @@ app.post('/', async (c) => {
 
     // Step 3: Search for recipe
     console.log(`🔍 Searching for recipe: ${intent.searchQuery}`);
-    const searchResult = await searchRecipe(intent.searchQuery);
+    const searchResult = await searchRecipe(intent.searchQuery, profile);
     console.log(`✅ Found recipe: ${searchResult.title} at ${searchResult.url}`);
 
     // Step 4: Scrape recipe content
@@ -103,7 +118,7 @@ app.post('/', async (c) => {
 
       // Step 5: Format recipe
       console.log(`🎨 Formatting recipe data...`);
-      recipeData = await formatRecipe(scrapedContent, searchResult.url);
+      recipeData = await formatRecipe(scrapedContent, searchResult.url, profile);
       console.log(`✅ Recipe formatted: ${recipeData.title}`);
     } catch (scrapeError) {
       console.warn(`⚠️ Scraping failed, creating fallback recipe: ${scrapeError}`);

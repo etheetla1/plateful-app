@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import Anthropic from '@anthropic-ai/sdk';
 import { getContainer, generateId, isCosmosAvailable } from '../lib/cosmos';
-import type { ChatMessage, ChatConversation, ChatMessageCreateRequest, ConversationCreateRequest } from '@plateful/shared';
+import type { ChatMessage, ChatConversation, ChatMessageCreateRequest, ConversationCreateRequest, FoodProfile } from '@plateful/shared';
 
 const app = new Hono();
 
@@ -257,7 +257,7 @@ app.post('/ai-response', async (c) => {
 
   try {
     const body = await c.req.json();
-    const { conversationID } = body;
+    const { conversationID, userID } = body;
 
     if (!conversationID) {
       return c.json({ error: 'conversationID is required' }, 400);
@@ -280,6 +280,23 @@ app.post('/ai-response', async (c) => {
       return c.json({ error: 'No messages found in conversation' }, 404);
     }
 
+    // Fetch user profile if userID is provided
+    let profile: FoodProfile | null = null;
+    if (userID) {
+      const profileContainer = getContainer('userProfiles');
+      if (profileContainer) {
+        try {
+          const { resource } = await profileContainer.item(userID, userID).read<FoodProfile>();
+          profile = resource || null;
+          if (profile) {
+            console.log(`✅ User profile loaded: ${profile.restrictions.length} restrictions, ${profile.allergens.length} allergens`);
+          }
+        } catch (error) {
+          console.log(`ℹ️ No profile found for user ${userID}`);
+        }
+      }
+    }
+
     // Initialize Anthropic client
     const client = new Anthropic({ 
       apiKey: process.env.ANTHROPIC_API_KEY 
@@ -291,11 +308,156 @@ app.post('/ai-response', async (c) => {
       content: msg.content
     }));
 
+    // Build system prompt with strict dietary restrictions
+    let systemPrompt = "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused.";
+    
+    if (profile) {
+      // CRITICAL: Build strict restriction enforcement
+      const restrictions: string[] = [];
+      const allergens: string[] = [];
+      
+      if (profile.restrictions && profile.restrictions.length > 0) {
+        restrictions.push(...profile.restrictions);
+      }
+      if (profile.allergens && profile.allergens.length > 0) {
+        allergens.push(...profile.allergens);
+      }
+
+      // Debug logging
+      console.log(`📋 Profile restrictions: [${restrictions.join(', ')}]`);
+      console.log(`🚨 Profile allergens: [${allergens.join(', ')}]`);
+
+      if (restrictions.length > 0 || allergens.length > 0) {
+        systemPrompt += `\n\n⚠️⚠️⚠️ CRITICAL DIETARY RESTRICTIONS - ABSOLUTE ENFORCEMENT REQUIRED ⚠️⚠️⚠️\n`;
+        systemPrompt += `THESE RESTRICTIONS ARE NON-NEGOTIABLE AND MUST BE STRICTLY ENFORCED IN EVERY RESPONSE.\n`;
+        systemPrompt += `VIOLATING THESE RESTRICTIONS IS UNACCEPTABLE AND DANGEROUS.\n\n`;
+        
+        if (restrictions.length > 0) {
+          const restrictionsList = restrictions.map(r => r.toLowerCase());
+          systemPrompt += `🚫 ABSOLUTELY FORBIDDEN FOODS/RESTRICTIONS: ${restrictions.join(', ').toUpperCase()}\n\n`;
+          
+          // Specific enforcement rules for common restrictions
+          if (restrictionsList.includes('pescatarian')) {
+            systemPrompt += `⚠️ PESCATARIAN RESTRICTION DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: ALL meat (beef, pork, lamb, veal, etc.) and ALL poultry (chicken, turkey, duck, etc.)\n`;
+            systemPrompt += `- ALLOWED: ONLY finned fish and plant-based ingredients\n`;
+            
+            // Check if shellfish allergy exists - if so, exclude shellfish from pescatarian options
+            const hasShellfishAllergy = allergens.length > 0 && allergens.map(a => a.toLowerCase()).includes('shellfish');
+            if (hasShellfishAllergy) {
+              systemPrompt += `- IMPORTANT: Due to shellfish allergy, ONLY suggest finned fish (salmon, tuna, cod, etc.) - NEVER suggest shellfish\n`;
+              systemPrompt += `- When suggesting proteins, ONLY mention: salmon, tuna, cod, halibut, etc. (finned fish only)\n`;
+            } else {
+              systemPrompt += `- When suggesting proteins, you may mention: fish, seafood, salmon, tuna, etc. (but verify no allergens are present)\n`;
+            }
+            systemPrompt += `- NEVER chicken, beef, pork, turkey, or any land animals\n`;
+            systemPrompt += `- If listing protein options, ONLY list finned fish (if no shellfish allergy) or plant-based options\n\n`;
+          }
+          
+          if (restrictionsList.includes('vegetarian')) {
+            systemPrompt += `⚠️ VEGETARIAN RESTRICTION DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: ALL meat, poultry, fish, and seafood\n`;
+            systemPrompt += `- ALLOWED: ONLY plant-based ingredients, eggs, and dairy\n`;
+            systemPrompt += `- NEVER suggest any animal flesh\n\n`;
+          }
+          
+          if (restrictionsList.includes('vegan')) {
+            systemPrompt += `⚠️ VEGAN RESTRICTION DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: ALL animal products (meat, poultry, fish, seafood, eggs, dairy, honey)\n`;
+            systemPrompt += `- ALLOWED: ONLY plant-based ingredients\n`;
+            systemPrompt += `- NEVER suggest any animal-derived products\n\n`;
+          }
+          
+          // Specific food restrictions
+          if (restrictionsList.includes('pork')) {
+            systemPrompt += `⚠️ PORK RESTRICTION: NEVER suggest pork, bacon, ham, prosciutto, sausage (if pork-based), or any pork products\n`;
+          }
+          if (restrictionsList.includes('beef')) {
+            systemPrompt += `⚠️ BEEF RESTRICTION: NEVER suggest beef, steak, hamburgers, ground beef, or any beef products\n`;
+          }
+          if (restrictionsList.includes('poultry')) {
+            systemPrompt += `⚠️ POULTRY RESTRICTION: NEVER suggest chicken, turkey, duck, or any poultry\n`;
+          }
+          
+          systemPrompt += `\n🔒 MANDATORY ENFORCEMENT RULES:\n`;
+          systemPrompt += `1. BEFORE suggesting ANY protein or dish, verify it complies with ALL restrictions above\n`;
+          systemPrompt += `2. When listing options, ONLY list compliant options - DO NOT list forbidden items\n`;
+          systemPrompt += `3. If user asks about a restricted food, respond: "I can't suggest [food] due to your dietary restrictions. How about [compliant alternative] instead?"\n`;
+          systemPrompt += `4. NEVER suggest or even mention restricted foods as options\n`;
+          systemPrompt += `5. This is a SAFETY and RESPECT issue - violations are UNACCEPTABLE\n\n`;
+        }
+        
+        if (allergens.length > 0) {
+          const allergensList = allergens.map(a => a.toLowerCase());
+          systemPrompt += `\n\n🚨🚨🚨 CRITICAL ALLERGENS - LIFE-THREATENING SAFETY ISSUE 🚨🚨🚨\n`;
+          systemPrompt += `THESE ALLERGENS CAN CAUSE SERIOUS HARM OR DEATH. ABSOLUTELY NO EXCEPTIONS.\n\n`;
+          systemPrompt += `⚠️ ALLERGENS TO AVOID: ${allergens.join(', ').toUpperCase()}\n\n`;
+          
+          // Specific enforcement for common allergens
+          if (allergensList.includes('shellfish')) {
+            systemPrompt += `🚨 SHELLFISH ALLERGY DETECTED - EXTREME CAUTION REQUIRED:\n`;
+            systemPrompt += `- ABSOLUTELY FORBIDDEN: ALL shellfish including shrimp, crab, lobster, crawfish, crayfish, prawns, scallops, mussels, clams, oysters, squid, octopus, calamari, and ANY seafood with a shell\n`;
+            systemPrompt += `- NEVER suggest shrimp burgers, crab cakes, lobster rolls, seafood paella, or ANY dish containing shellfish\n`;
+            systemPrompt += `- SAFE ALTERNATIVES: Fish (salmon, tuna, cod, etc.) and plant-based options are safe\n`;
+            systemPrompt += `- If suggesting seafood, ONLY suggest finned fish - NEVER shellfish\n`;
+            systemPrompt += `- Shrimp is a CRUSTACEAN and is ABSOLUTELY FORBIDDEN under shellfish allergy\n\n`;
+          }
+          
+          if (allergensList.includes('nuts')) {
+            systemPrompt += `🚨 NUT ALLERGY DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: ALL tree nuts (almonds, walnuts, cashews, pistachios, etc.), peanuts, and nut-based ingredients\n`;
+            systemPrompt += `- Check for hidden nuts in sauces, oils, and seasonings\n\n`;
+          }
+          
+          if (allergensList.includes('dairy')) {
+            systemPrompt += `🚨 DAIRY ALLERGY DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: Milk, cheese, butter, cream, yogurt, and all dairy products\n`;
+            systemPrompt += `- Use dairy-free alternatives in suggestions\n\n`;
+          }
+          
+          if (allergensList.includes('eggs')) {
+            systemPrompt += `🚨 EGG ALLERGY DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: Eggs in any form (scrambled, baked, as binding agent, etc.)\n`;
+            systemPrompt += `- Use egg-free alternatives for binding in recipes\n\n`;
+          }
+          
+          if (allergensList.includes('fish')) {
+            systemPrompt += `🚨 FISH ALLERGY DETECTED:\n`;
+            systemPrompt += `- FORBIDDEN: ALL finned fish (salmon, tuna, cod, etc.)\n`;
+            systemPrompt += `- Use plant-based or other protein alternatives\n\n`;
+          }
+          
+          systemPrompt += `\n🚨 CRITICAL ALLERGEN ENFORCEMENT RULES:\n`;
+          systemPrompt += `1. ALLERGENS ARE MORE DANGEROUS THAN RESTRICTIONS - THIS IS A LIFE SAFETY ISSUE\n`;
+          systemPrompt += `2. BEFORE suggesting ANY recipe, ingredient, or dish, verify it contains ZERO allergens\n`;
+          systemPrompt += `3. When listing protein or ingredient options, ABSOLUTELY EXCLUDE all allergenic items\n`;
+          systemPrompt += `4. If user asks about an allergenic food, respond: "I can't suggest [food] because you're allergic to [allergen]. This could be dangerous. How about [safe alternative] instead?"\n`;
+          systemPrompt += `5. NEVER mention allergenic foods even as "alternatives you could try" - they are completely off-limits\n`;
+          systemPrompt += `6. This is a MEDICAL SAFETY issue - violations could cause serious harm\n\n`;
+        }
+
+        systemPrompt += `\n🔒 FINAL MANDATORY ENFORCEMENT RULES (APPLY TO BOTH RESTRICTIONS AND ALLERGENS):\n`;
+        systemPrompt += `1. BEFORE suggesting ANY protein, ingredient, or dish, verify it complies with ALL restrictions AND allergens above\n`;
+        systemPrompt += `2. When listing options, ONLY list compliant and safe options - DO NOT list forbidden or allergenic items\n`;
+        systemPrompt += `3. If user asks about a restricted/allergenic food, immediately decline and suggest a safe alternative\n`;
+        systemPrompt += `4. NEVER suggest, mention, or even hint at restricted/allergenic foods as options\n`;
+        systemPrompt += `5. This is a SAFETY and RESPECT issue - violations are UNACCEPTABLE and DANGEROUS\n\n`;
+      }
+
+      // Optional: Add preferences (likes/dislikes) for personalization
+      if (profile.likes && profile.likes.length > 0) {
+        systemPrompt += `\n✅ User prefers: ${profile.likes.join(', ')}. You can emphasize these preferences when relevant.\n`;
+      }
+      if (profile.dislikes && profile.dislikes.length > 0) {
+        systemPrompt += `\n❌ User dislikes: ${profile.dislikes.join(', ')}. Avoid emphasizing these.\n`;
+      }
+    }
+
     // Generate AI response using Claude
     const response = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 500,
-      system: "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused.",
+      system: systemPrompt,
       messages: conversationHistory
     });
 
