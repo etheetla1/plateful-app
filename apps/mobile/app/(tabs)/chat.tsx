@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   View,
   Text,
@@ -29,11 +30,13 @@ const API_BASE = Platform.select({
 });
 
 export default function ChatScreen() {
+  const params = useLocalSearchParams<{ editingConversationID?: string }>();
   const [conversationID, setConversationID] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [generatingRecipe, setGeneratingRecipe] = useState(false);
+  const [savingEditedRecipe, setSavingEditedRecipe] = useState(false);
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
   const [currentIntent, setCurrentIntent] = useState<IntentExtractionResult | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -41,12 +44,58 @@ export default function ChatScreen() {
   const sparkleAnim2 = useRef(new Animated.Value(0)).current;
   const sparkleAnim3 = useRef(new Animated.Value(0)).current;
 
-  // Initialize conversation
+  // Initialize conversation - check for editing conversation first
   useEffect(() => {
-    if (auth.currentUser) {
-      startNewConversation();
+    if (auth.currentUser && !conversationID) {
+      // Check if we're coming from recipe editing
+      if (params.editingConversationID) {
+        setConversationID(params.editingConversationID);
+        return;
+      }
+      
+      // Otherwise start new conversation
+      const timer = setTimeout(() => {
+        startNewConversation();
+      }, 500);
+      return () => clearTimeout(timer);
     }
-  }, []);
+  }, [params.editingConversationID]);
+
+  // Load messages when conversationID changes
+  useEffect(() => {
+    if (conversationID && auth.currentUser) {
+      loadMessages();
+      loadConversation();
+    }
+  }, [conversationID]);
+
+  const loadMessages = async () => {
+    if (!conversationID) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/chat/messages/${conversationID}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  };
+
+  const loadConversation = async () => {
+    if (!conversationID) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/chat/conversation/${conversationID}`);
+      if (response.ok) {
+        const data = await response.json();
+        setConversation(data.conversation);
+      }
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+    }
+  };
 
   // Sparkle animation effect
   useEffect(() => {
@@ -110,11 +159,15 @@ export default function ChatScreen() {
       setConversation(data.conversation);
       setMessages([]);
       
-      // Send initial greeting
-      await sendAssistantMessage(
-        newConvID,
-        "Hi! I'm here to help you discover delicious recipes. What kind of meal are you in the mood for today?"
-      );
+      // Check if this is an editing conversation - if so, don't send greeting
+      // (greeting is sent by load-recipe endpoint)
+      if (data.conversation.status !== 'editing_recipe') {
+        // Send initial greeting
+        await sendAssistantMessage(
+          newConvID,
+          "Hi! I'm here to help you discover delicious recipes. What kind of meal are you in the mood for today?"
+        );
+      }
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -317,6 +370,48 @@ export default function ChatScreen() {
     }
   };
 
+  const saveEditedRecipe = async () => {
+    if (!conversationID || !auth.currentUser) return;
+
+    setSavingEditedRecipe(true);
+
+    try {
+      console.log(`💾 Saving edited recipe for conversation ${conversationID}...`);
+      
+      const response = await fetch(`${API_BASE}/api/chat/save-edited-recipe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationID,
+          userID: auth.currentUser.uid,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save edited recipe: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Edited recipe saved:', data);
+      
+      Alert.alert(
+        'Recipe Saved!',
+        'Your edited recipe has been saved as a new recipe. Check it out in the Recipes tab!',
+        [
+          { text: 'Start New Chat', onPress: startNewConversation },
+          { text: 'OK', style: 'cancel' },
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Failed to save edited recipe:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save edited recipe';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setSavingEditedRecipe(false);
+    }
+  };
+
   const getButtonText = () => {
     if (generatingRecipe) return "Generating Recipe...";
     if (!currentIntent) return "✨ Find Recipe";
@@ -420,9 +515,24 @@ export default function ChatScreen() {
         )}
       </ScrollView>
 
+      {conversation?.status === 'editing_recipe' && 
+       messages.length > 2 && 
+       messages.filter(m => m.role === 'user').length > 0 && (
+        <View style={styles.recipeButtonContainer}>
+          <Button
+            title={savingEditedRecipe ? "Saving..." : "💾 Save Edited Recipe"}
+            onPress={saveEditedRecipe}
+            loading={savingEditedRecipe}
+            variant="primary"
+            disabled={savingEditedRecipe}
+          />
+        </View>
+      )}
+
       {messages.length > 2 && currentIntent && 
        currentIntent.status !== 'kitchen_utility' && 
-       currentIntent.status !== 'off_topic' && (
+       currentIntent.status !== 'off_topic' &&
+       conversation?.status !== 'editing_recipe' && (
         <View style={styles.recipeButtonContainer}>
           <Button
             title={getButtonText()}

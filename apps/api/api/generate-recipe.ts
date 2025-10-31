@@ -103,53 +103,65 @@ app.post('/', async (c) => {
       }
     }
 
-    // Step 3: Search for recipe
-    console.log(`🔍 Searching for recipe: ${intent.searchQuery}`);
-    const searchResult = await searchRecipe(intent.searchQuery, profile);
-    console.log(`✅ Found recipe: ${searchResult.title} at ${searchResult.url}`);
+    // Step 3: Search for recipes (multiple options)
+    console.log(`🔍 Searching for recipes: ${intent.searchQuery}`);
+    const searchResults = await searchRecipe(intent.searchQuery, profile);
+    console.log(`✅ Found ${searchResults.length} recipe options`);
 
-    // Step 4: Scrape recipe content
-    console.log(`📄 Scraping recipe content...`);
+    // Step 4: Try scraping each recipe URL until one succeeds
+    console.log(`📄 Attempting to scrape recipe content...`);
     let recipeData;
+    let successfulUrl: string | null = null;
+    let lastError: Error | null = null;
     
-    try {
-      const scrapedContent = await scrapeRecipeContent(searchResult.url);
-      console.log(`✅ Scraped ${scrapedContent.length} characters`);
+    for (let i = 0; i < searchResults.length; i++) {
+      const searchResult = searchResults[i];
+      const domain = new URL(searchResult.url).hostname;
+      console.log(`\n🔄 Trying recipe ${i + 1}/${searchResults.length}: ${searchResult.title} (${domain})`);
+      
+      try {
+        const scrapeResult = await scrapeRecipeContent(searchResult.url, true);
+        
+        // Validate that we got meaningful content
+        if (!scrapeResult.content || scrapeResult.content.length < 200) {
+          throw new Error(`Scraped content too short (${scrapeResult.content?.length || 0} chars), likely failed`);
+        }
+        
+        console.log(`✅ Successfully scraped ${scrapeResult.content.length} characters from ${domain}`);
+        if (scrapeResult.imageUrl) {
+          console.log(`✅ Extracted image: ${scrapeResult.imageUrl}`);
+        }
 
-      // Step 5: Format recipe
-      console.log(`🎨 Formatting recipe data...`);
-      recipeData = await formatRecipe(scrapedContent, searchResult.url, profile);
-      console.log(`✅ Recipe formatted: ${recipeData.title}`);
-    } catch (scrapeError) {
-      console.warn(`⚠️ Scraping failed, creating fallback recipe: ${scrapeError}`);
-      
-      // Create a basic fallback recipe based on the search query
-      recipeData = {
-        title: searchResult.title,
-        description: `A delicious ${intent.dish} recipe`,
-        portions: "4 servings (estimated by AI)",
-        ingredients: [
-          "Main ingredients based on recipe type",
-          "Seasonings and spices",
-          "Cooking oil or butter",
-          "Salt and pepper to taste"
-        ],
-        instructions: [
-          "Prepare all ingredients",
-          "Follow traditional cooking methods for this dish",
-          "Season to taste",
-          "Serve hot and enjoy!"
-        ],
-        nutrition: {
-          calories_per_portion: "300-500 kcal (estimated by AI)",
-          protein: "20-30g (estimated by AI)",
-          carbs: "30-50g (estimated by AI)",
-          fat: "10-20g (estimated by AI)"
-        },
-        sourceUrl: searchResult.url
-      };
-      
-      console.log(`✅ Fallback recipe created: ${recipeData.title}`);
+        // Step 5: Format recipe
+        console.log(`🎨 Formatting recipe data...`);
+        recipeData = await formatRecipe(scrapeResult.content, searchResult.url, profile);
+        
+        // Add image URL if extracted
+        if (scrapeResult.imageUrl) {
+          recipeData.imageUrl = scrapeResult.imageUrl;
+        }
+        
+        successfulUrl = searchResult.url;
+        console.log(`✅ Recipe formatted successfully: ${recipeData.title}`);
+        break; // Success! Exit the loop
+        
+      } catch (scrapeError) {
+        lastError = scrapeError instanceof Error ? scrapeError : new Error(String(scrapeError));
+        console.warn(`❌ Failed to scrape ${domain}: ${lastError.message}`);
+        // Continue to next URL
+      }
+    }
+    
+    // If all URLs failed, throw error (don't create fallback)
+    if (!recipeData || !successfulUrl) {
+      const errorMessage = `Failed to scrape any of the ${searchResults.length} recipe URLs. Last error: ${lastError?.message || 'Unknown error'}`;
+      console.error(`❌ ${errorMessage}`);
+      return c.json({ 
+        error: 'Failed to retrieve recipe',
+        message: 'Unable to access any recipe websites. Please try again later or with a different dish.',
+        details: errorMessage,
+        attemptedUrls: searchResults.map(r => r.url)
+      }, 500);
     }
 
     // Step 6: Check for duplicate recipe
@@ -158,7 +170,7 @@ app.post('/', async (c) => {
       return c.json({ error: 'Database not available' }, 503);
     }
 
-    const sourceUrlLower = searchResult.url.toLowerCase();
+    const sourceUrlLower = successfulUrl.toLowerCase();
     const { resources: existingRecipes } = await recipesContainer.items
       .query<Recipe>({
         query: 'SELECT * FROM c WHERE c.userID = @userID AND c.sourceUrlLower = @sourceUrlLower',
@@ -218,10 +230,13 @@ app.post('/', async (c) => {
 
     console.log(`🎉 Recipe generation complete!`);
 
+    // Find the successful search result for the response
+    const successfulSearchResult = searchResults.find(r => r.url === successfulUrl) || searchResults[0];
+
     return c.json({ 
       recipe,
       intent,
-      searchResult
+      searchResult: successfulSearchResult
     }, 201);
 
   } catch (error) {
@@ -342,6 +357,54 @@ app.patch('/:recipeID', async (c) => {
   } catch (error) {
     console.error('Error updating recipe:', error);
     return c.json({ error: 'Failed to update recipe' }, 500);
+  }
+});
+
+/**
+ * Delete a recipe
+ * DELETE /recipes/:recipeID
+ */
+app.delete('/:recipeID', async (c) => {
+  if (!isCosmosAvailable()) {
+    return c.json({ error: 'Recipe service not available' }, 503);
+  }
+
+  try {
+    const recipeID = c.req.param('recipeID');
+    const userID = c.req.query('userID');
+
+    if (!userID) {
+      return c.json({ error: 'userID query parameter is required' }, 400);
+    }
+
+    const container = getContainer('recipes');
+    if (!container) {
+      return c.json({ error: 'Database not available' }, 503);
+    }
+
+    // Verify recipe exists and belongs to user
+    const { resource: recipe } = await container
+      .item(recipeID, userID)
+      .read<Recipe>();
+
+    if (!recipe) {
+      return c.json({ error: 'Recipe not found' }, 404);
+    }
+
+    // Verify ownership
+    if (recipe.userID !== userID) {
+      return c.json({ error: 'Unauthorized: Recipe does not belong to user' }, 403);
+    }
+
+    // Delete the recipe
+    await container.item(recipeID, userID).delete();
+
+    console.log(`✅ Recipe deleted: ${recipeID}`);
+
+    return c.json({ message: 'Recipe deleted successfully' }, 200);
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    return c.json({ error: 'Failed to delete recipe' }, 500);
   }
 });
 

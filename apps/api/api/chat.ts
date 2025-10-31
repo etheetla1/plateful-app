@@ -308,8 +308,38 @@ app.post('/ai-response', async (c) => {
       content: msg.content
     }));
 
+    // Check if conversation is in recipe editing mode
+    const { resource: conversation } = await getContainer('chatConversations')
+      ?.item(conversationID, conversationID)
+      .read<ChatConversation>() || { resource: null };
+
+    let recipeContext = '';
+    if (conversation?.status === 'editing_recipe' && conversation.editingRecipeID && userID) {
+      const recipesContainer = getContainer('recipes');
+      if (recipesContainer) {
+        try {
+          const { resource: recipe } = await recipesContainer
+            .item(conversation.editingRecipeID, userID)
+            .read();
+          if (recipe) {
+            recipeContext = `\n\n📝 RECIPE EDITING MODE:\nYou are helping the user edit this recipe:\n` +
+              `Title: ${recipe.recipeData.title}\n` +
+              `Description: ${recipe.recipeData.description || 'N/A'}\n` +
+              `Portions: ${recipe.recipeData.portions}\n` +
+              `Ingredients: ${recipe.recipeData.ingredients.join(', ')}\n` +
+              `Instructions: ${recipe.recipeData.instructions.join('; ')}\n\n` +
+              `When the user requests changes, acknowledge them and describe the modified recipe. ` +
+              `After the user confirms the edits, they will save it as a new recipe. ` +
+              `DO NOT generate a new recipe from scratch - modify the existing one based on their requests.`;
+          }
+        } catch (error) {
+          console.log('Could not load recipe context for editing');
+        }
+      }
+    }
+
     // Build system prompt with strict dietary restrictions
-    let systemPrompt = "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused.";
+    let systemPrompt = "You are a helpful recipe assistant for the Plateful app. Help users discover delicious recipes through friendly conversation. Ask follow-up questions to understand their preferences, suggest dishes, and guide them toward finding the perfect recipe. Keep responses conversational, helpful, and food-focused." + recipeContext;
     
     if (profile) {
       // CRITICAL: Build strict restriction enforcement
@@ -474,6 +504,228 @@ app.post('/ai-response', async (c) => {
   } catch (error) {
     console.error('Error generating AI response:', error);
     return c.json({ error: 'Failed to generate AI response' }, 500);
+  }
+});
+
+/**
+ * Load a recipe into chat for editing
+ * POST /chat/load-recipe
+ */
+app.post('/load-recipe', async (c) => {
+  if (!isCosmosAvailable()) {
+    return c.json({ error: 'Chat service not available' }, 503);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { conversationID, recipeID, userID } = body;
+
+    if (!conversationID || !recipeID || !userID) {
+      return c.json({ error: 'conversationID, recipeID, and userID are required' }, 400);
+    }
+
+    const conversationContainer = getContainer('chatConversations');
+    const recipesContainer = getContainer('recipes');
+    
+    if (!conversationContainer || !recipesContainer) {
+      return c.json({ error: 'Database not available' }, 503);
+    }
+
+    // Verify recipe exists and belongs to user
+    const { resource: recipe } = await recipesContainer
+      .item(recipeID, userID)
+      .read();
+    
+    if (!recipe) {
+      return c.json({ error: 'Recipe not found' }, 404);
+    }
+
+    if (recipe.userID !== userID) {
+      return c.json({ error: 'Unauthorized: Recipe does not belong to user' }, 403);
+    }
+
+    // Update conversation with recipe editing context
+    const { resource: conversation } = await conversationContainer
+      .item(conversationID, conversationID)
+      .read<ChatConversation>();
+
+    if (!conversation) {
+      return c.json({ error: 'Conversation not found' }, 404);
+    }
+
+    conversation.status = 'editing_recipe';
+    conversation.editingRecipeID = recipeID;
+    conversation.updatedAt = new Date().toISOString();
+    await conversationContainer.item(conversationID, conversationID).replace(conversation);
+
+    // Send initial message about the recipe
+    const messageContainer = getContainer('chatMessages');
+    if (messageContainer) {
+      // Get current message count
+      const { resources: existingMessages } = await messageContainer.items
+        .query({
+          query: 'SELECT * FROM c WHERE c.conversationID = @conversationID ORDER BY c.messageIndex DESC OFFSET 0 LIMIT 1',
+          parameters: [{ name: '@conversationID', value: conversationID }],
+        })
+        .fetchAll();
+
+      const messageIndex = existingMessages.length > 0 ? existingMessages[0].messageIndex + 1 : 0;
+      const messageId = generateId('msg');
+
+      const message = {
+        id: messageId,
+        conversationID,
+        messageIndex,
+        role: 'assistant',
+        content: `I've loaded your recipe "${recipe.recipeData.title}". How would you like to modify it? For example, you can ask me to make it vegetarian, adjust the servings, change ingredients, or modify the instructions.`,
+        timestamp: new Date().toISOString(),
+      };
+
+      await messageContainer.items.create(message);
+    }
+
+    return c.json({ 
+      success: true, 
+      conversation,
+      recipe: {
+        id: recipe.recipeID,
+        title: recipe.recipeData.title,
+      }
+    }, 200);
+  } catch (error) {
+    console.error('Error loading recipe into chat:', error);
+    return c.json({ error: 'Failed to load recipe into chat' }, 500);
+  }
+});
+
+/**
+ * Save edited recipe as a new recipe
+ * POST /chat/save-edited-recipe
+ */
+app.post('/save-edited-recipe', async (c) => {
+  if (!isCosmosAvailable()) {
+    return c.json({ error: 'Chat service not available' }, 503);
+  }
+
+  try {
+    const body = await c.req.json();
+    const { conversationID, userID } = body;
+
+    if (!conversationID || !userID) {
+      return c.json({ error: 'conversationID and userID are required' }, 400);
+    }
+
+    const conversationContainer = getContainer('chatConversations');
+    const recipesContainer = getContainer('recipes');
+    const messagesContainer = getContainer('chatMessages');
+    
+    if (!conversationContainer || !recipesContainer || !messagesContainer) {
+      return c.json({ error: 'Database not available' }, 503);
+    }
+
+    // Get conversation
+    const { resource: conversation } = await conversationContainer
+      .item(conversationID, conversationID)
+      .read<ChatConversation>();
+
+    if (!conversation || conversation.status !== 'editing_recipe' || !conversation.editingRecipeID) {
+      return c.json({ error: 'No recipe being edited in this conversation' }, 400);
+    }
+
+    // Get original recipe
+    const { resource: originalRecipe } = await recipesContainer
+      .item(conversation.editingRecipeID, userID)
+      .read();
+
+    if (!originalRecipe) {
+      return c.json({ error: 'Original recipe not found' }, 404);
+    }
+
+    // Get conversation messages
+    const { resources: messages } = await messagesContainer.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.conversationID = @conversationID ORDER BY c.messageIndex ASC',
+        parameters: [{ name: '@conversationID', value: conversationID }],
+      })
+      .fetchAll();
+
+    if (messages.length === 0) {
+      return c.json({ error: 'No messages in conversation' }, 400);
+    }
+
+    // Get user profile for formatting
+    let profile: FoodProfile | null = null;
+    const profileContainer = getContainer('userProfiles');
+    if (profileContainer) {
+      try {
+        const { resource } = await profileContainer.item(userID, userID).read<FoodProfile>();
+        profile = resource || null;
+      } catch (error) {
+        // Profile not found, continue without it
+      }
+    }
+
+    // Use recipe formatter to extract modified recipe from conversation
+    // Build a prompt that includes the full conversation
+    const conversationText = messages
+      .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+      .join('\n\n');
+
+    const { formatRecipe } = await import('../services/recipe-formatter');
+    
+    // Create a synthetic scraped content from the conversation
+    // The AI has already described the modified recipe in the conversation
+    const scrapedContent = `Modified Recipe Conversation:\n\n${conversationText}\n\n` +
+      `Original Recipe:\n` +
+      `Title: ${originalRecipe.recipeData.title}\n` +
+      `Description: ${originalRecipe.recipeData.description}\n` +
+      `Portions: ${originalRecipe.recipeData.portions}\n` +
+      `Ingredients: ${originalRecipe.recipeData.ingredients.join(', ')}\n` +
+      `Instructions: ${originalRecipe.recipeData.instructions.join('; ')}`;
+
+    // Format the modified recipe
+    const modifiedRecipeData = await formatRecipe(scrapedContent, originalRecipe.recipeData.sourceUrl, profile);
+
+    // Preserve image URL from original (always keep it, we'll add an "Edited" banner in UI)
+    if (!modifiedRecipeData.imageUrl && originalRecipe.recipeData.imageUrl) {
+      modifiedRecipeData.imageUrl = originalRecipe.recipeData.imageUrl;
+    }
+
+    // Create new recipe (don't overwrite original)
+    const recipeID = generateId('recipe');
+    const now = new Date().toISOString();
+
+    const newRecipe: Recipe = {
+      id: recipeID,
+      userID,
+      recipeID,
+      recipeNameLower: modifiedRecipeData.title.toLowerCase(),
+      sourceUrlLower: originalRecipe.sourceUrlLower,
+      recipeData: modifiedRecipeData,
+      isSaved: false,
+      isEdited: true, // Mark as edited
+      originalRecipeID: originalRecipe.recipeID, // Link to original
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await recipesContainer.items.create(newRecipe);
+
+    // Update conversation status
+    conversation.status = 'recipe_found';
+    conversation.recipeID = recipeID;
+    conversation.updatedAt = new Date().toISOString();
+    await conversationContainer.item(conversationID, conversationID).replace(conversation);
+
+    console.log(`✅ Edited recipe saved as new recipe: ${recipeID}`);
+
+    return c.json({ 
+      recipe: newRecipe,
+      message: 'Recipe saved successfully!'
+    }, 201);
+  } catch (error) {
+    console.error('Error saving edited recipe:', error);
+    return c.json({ error: 'Failed to save edited recipe' }, 500);
   }
 });
 

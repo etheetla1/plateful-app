@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@plateful/shared';
+import ProfileMenu from './ProfileMenu';
 
 interface HeaderProps {
   title?: string;
@@ -11,44 +12,27 @@ interface HeaderProps {
 
 export default function Header({ title, showBackButton = false }: HeaderProps) {
   const router = useRouter();
+  const [menuVisible, setMenuVisible] = useState(false);
 
   const handleProfilePress = () => {
-    if (Platform.OS === 'ios') {
-      Alert.alert(
-        'Menu',
-        'Choose an option',
-        [
-          { text: 'Profile', onPress: () => router.push('/profile') },
-          { text: 'Settings', onPress: () => router.push('/(tabs)/settings') },
-          { text: 'Cancel', style: 'cancel' },
-        ],
-        { cancelable: true }
-      );
-    } else {
-      Alert.alert(
-        'Menu',
-        'Choose an option',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Settings', onPress: () => router.push('/(tabs)/settings') },
-          { text: 'Profile', onPress: () => router.push('/profile'), style: 'default' },
-        ]
-      );
-    }
+    setMenuVisible(true);
   };
 
   return (
-    <View style={styles.container}>
-      {showBackButton && (
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+    <>
+      <View style={styles.container}>
+        {showBackButton && (
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        )}
+        {title && <Text style={styles.title}>{title}</Text>}
+        <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
+          <Ionicons name="person-circle" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
-      )}
-      {title && <Text style={styles.title}>{title}</Text>}
-      <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
-        <Ionicons name="person-circle" size={28} color={colors.textPrimary} />
-      </TouchableOpacity>
-    </View>
+      </View>
+      <ProfileMenu visible={menuVisible} onClose={() => setMenuVisible(false)} />
+    </>
   );
 }
 

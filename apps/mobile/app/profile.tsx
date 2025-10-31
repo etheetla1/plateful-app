@@ -16,6 +16,7 @@ import { Button } from '@plateful/ui';
 import Header from '../src/components/Header';
 import { auth } from '../src/config/firebase';
 import type { FoodProfile } from '@plateful/shared';
+import { colors } from '@plateful/shared';
 import {
   COMMON_LIKES,
   COMMON_DISLIKES,
@@ -67,7 +68,7 @@ function TagInput({ value, onChange, onTagAdded, placeholder = 'Add item...' }: 
           returnKeyType="done"
         />
         <TouchableOpacity style={styles.addTagButton} onPress={addTag}>
-          <Ionicons name="add" size={20} color="#4CAF50" />
+          <Ionicons name="add" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
       {value.length > 0 && (
@@ -79,7 +80,7 @@ function TagInput({ value, onChange, onTagAdded, placeholder = 'Add item...' }: 
               onPress={() => removeTag(tag)}
             >
               <Text style={styles.tagText}>{tag}</Text>
-              <Ionicons name="close-circle" size={16} color="#757575" />
+              <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           ))}
         </View>
@@ -317,7 +318,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
@@ -382,18 +383,18 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#757575',
+    color: colors.textSecondary,
   },
   scrollView: {
     flex: 1,
@@ -408,7 +409,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#212121',
+    color: colors.textPrimary,
     marginBottom: 16,
   },
   pillContainer: {
@@ -423,26 +424,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.border,
   },
   pillSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   pillText: {
     fontSize: 14,
-    color: '#424242',
+    color: colors.textPrimary,
     fontWeight: '500',
   },
   pillTextSelected: {
-    color: '#FFFFFF',
+    color: colors.surface,
   },
   customLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#757575',
+    color: colors.textSecondary,
     marginBottom: 8,
     marginTop: 8,
   },
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -462,7 +463,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#424242',
+    color: colors.textPrimary,
   },
   addTagButton: {
     padding: 4,
@@ -478,13 +479,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: colors.primaryLight,
     borderWidth: 1,
-    borderColor: '#BBDEFB',
+    borderColor: colors.primary,
   },
   tagText: {
     fontSize: 14,
-    color: '#1976D2',
+    color: colors.accent,
     marginRight: 4,
   },
 });

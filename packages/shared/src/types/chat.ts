@@ -11,10 +11,11 @@ export interface ChatConversation {
   id: string;
   conversationID: string;
   userID: string;
-  status: 'exploring' | 'decided' | 'recipe_found';
+  status: 'exploring' | 'decided' | 'recipe_found' | 'editing_recipe';
   decidedDish?: string;
   searchQuery?: string;
   recipeID?: string;
+  editingRecipeID?: string; // ID of recipe being edited
   createdAt: string;
   updatedAt: string;
 }

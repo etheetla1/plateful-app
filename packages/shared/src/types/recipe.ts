@@ -13,6 +13,7 @@ export interface RecipeData {
   instructions: string[];
   nutrition: RecipeNutrition;
   sourceUrl: string;
+  imageUrl?: string;
 }
 
 export interface Recipe {
@@ -26,6 +27,8 @@ export interface Recipe {
   isSaved: boolean;
   createdAt: string;
   updatedAt: string;
+  isEdited?: boolean; // Flag to indicate this recipe was edited from an original
+  originalRecipeID?: string; // ID of the original recipe if this was edited
 }
 
 export interface RecipeGenerateRequest {

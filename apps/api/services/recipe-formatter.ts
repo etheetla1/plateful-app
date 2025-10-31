@@ -59,7 +59,8 @@ Return a JSON object with this EXACT structure:
     "carbs": "XXg or XXg (estimated by AI)",
     "fat": "XXg or XXg (estimated by AI)"
   },
-  "sourceUrl": "${sourceUrl}"
+  "sourceUrl": "${sourceUrl}",
+  "imageUrl": "optional image URL if available"
 }
 
 Return ONLY the JSON object, no other text.`;

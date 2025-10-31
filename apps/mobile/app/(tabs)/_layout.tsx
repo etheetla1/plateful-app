@@ -124,20 +124,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarLabel: ({ focused }) => <TabLabel focused={focused} label="Settings" />,
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name="settings"
-              size={size}
-              color={color}
-              style={
-                focused
-                  ? { transform: [{ scale: 1.1 }] }
-                  : {}
-              }
-            />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen

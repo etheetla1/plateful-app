@@ -2,9 +2,10 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { RecipeSearchResult, FoodProfile } from '@plateful/shared';
 
 /**
- * Search for a recipe using Anthropic's web search
+ * Search for recipes using Anthropic's web search
+ * Returns multiple recipe options from different websites
  */
-export async function searchRecipe(searchQuery: string, profile?: FoodProfile | null): Promise<RecipeSearchResult> {
+export async function searchRecipe(searchQuery: string, profile?: FoodProfile | null): Promise<RecipeSearchResult[]> {
   // Initialize client with current environment variables
   const client = new Anthropic({ 
     apiKey: process.env.ANTHROPIC_API_KEY 
@@ -34,7 +35,7 @@ export async function searchRecipe(searchQuery: string, profile?: FoodProfile | 
       {
         type: "web_search_20250305",
         name: "web_search",
-        // Block problematic domains that return 403 errors
+        // Block problematic domains that return 403 or 500 errors
         blocked_domains: [
           "thekitchn.com",
           "foodnetwork.com", 
@@ -45,7 +46,8 @@ export async function searchRecipe(searchQuery: string, profile?: FoodProfile | 
           "allrecipes.com",
           "food.com",
           "epicurious.com",
-          "bonappetit.com"
+          "bonappetit.com",
+          "thehealthyhunterblog.com" // Consistently returns 500 errors
         ],
         // Prefer reliable recipe sites
       }
@@ -59,14 +61,20 @@ Find a specific recipe page URL (not a homepage or category page) from any relia
 
 IMPORTANT: Return a URL to a specific recipe page that contains ingredients and instructions, NOT a homepage or category listing page.
 
-Return ONLY a JSON object with this structure:
+Return a JSON array with 3-5 different recipe options, each from a DIFFERENT website/domain.
+Each recipe should be a JSON object with this structure:
 {
   "title": "Recipe title",
   "url": "Full URL to the specific recipe page (not homepage)",
   "snippet": "Brief description"
 }
 
-Important: Return ONLY the JSON object, no other text.`
+Return ONLY the JSON array, no other text. Example:
+[
+  {"title": "Recipe 1", "url": "https://site1.com/recipe", "snippet": "Description 1"},
+  {"title": "Recipe 2", "url": "https://site2.com/recipe", "snippet": "Description 2"},
+  {"title": "Recipe 3", "url": "https://site3.com/recipe", "snippet": "Description 3"}
+]`
     }]
   });
 
@@ -83,24 +91,31 @@ Important: Return ONLY the JSON object, no other text.`
     const cleanedText = resultText.replace(/```json\n?|\n?```/g, '').trim();
     
     // Try to parse as JSON first
-    const result: RecipeSearchResult = JSON.parse(cleanedText);
+    const parsed = JSON.parse(cleanedText);
     
-    if (!result.url || !result.title) {
-      throw new Error('Invalid search result format');
+    // Handle both array and single object responses
+    const results: RecipeSearchResult[] = Array.isArray(parsed) ? parsed : [parsed];
+    
+    // Validate each result
+    const validResults = results.filter(r => r && r.url && r.title);
+    
+    if (validResults.length === 0) {
+      throw new Error('No valid recipe results found');
     }
 
-    return result;
+    console.log(`✅ Found ${validResults.length} recipe options from different websites`);
+    return validResults;
   } catch (parseError) {
-    // Fallback: Try to extract URL from text
+    // Fallback: Try to extract URLs from text
     console.warn('Failed to parse search result as JSON, attempting URL extraction');
     
-    const urlMatch = resultText.match(/https?:\/\/[^\s<>"{}|\\^`[\]]+/);
-    if (urlMatch) {
-      return {
+    const urlMatches = resultText.match(/https?:\/\/[^\s<>"{}|\\^`[\]]+/g);
+    if (urlMatches && urlMatches.length > 0) {
+      return urlMatches.map(url => ({
         title: searchQuery,
-        url: urlMatch[0],
+        url: url,
         snippet: 'Recipe found via web search'
-      };
+      }));
     }
 
     throw new Error('No recipe URL found in search results');
