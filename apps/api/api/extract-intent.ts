@@ -49,4 +49,10 @@ app.post('/', async (c) => {
   }
 });
 
+import { handle } from 'hono/vercel';
+
+// Default export for dev server
 export default app;
+
+// Named exports for Vercel serverless functions
+export const POST = handle(app);

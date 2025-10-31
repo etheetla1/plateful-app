@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build:api && rm -f api && mkdir -p api && cp -r apps/api/api/* api/ && cp -r apps/api/lib api/ && cp -r apps/api/services api/ && cp apps/api/package.json api/",
-  "installCommand": "pnpm install"
+  "buildCommand": "npm run build:api && mkdir -p api && cp -r apps/api/api/* api/ && cp -r apps/api/lib api/ && cp -r apps/api/services api/ && cp apps/api/package.json api/",
+  "installCommand": "npm ci --workspace=@plateful/shared --workspace=api"
 }
 
