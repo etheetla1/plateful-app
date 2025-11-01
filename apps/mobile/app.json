@@ -28,11 +28,23 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.plateful.app",
+      "versionCode": 1,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
+      "permissions": [
+        "INTERNET",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_NETWORK_STATE"
+      ],
       "splash": {
         "image": "./assets/logo-full.png",
         "resizeMode": "contain",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "googleServicesFile": "./google-services.json",
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/logo-circle.png"
@@ -40,13 +52,30 @@
     "scheme": "plateful",
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.plateful.app"
+        }
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "e1d8f620-391d-4941-84a2-4ebbcbbd7f8e"
+      },
+      "apiBaseUrl": {
+        "development": "http://localhost:3000",
+        "staging": "https://plateful-app-eta.vercel.app",
+        "production": "https://plateful-app-eta.vercel.app"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e1d8f620-391d-4941-84a2-4ebbcbbd7f8e"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

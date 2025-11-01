@@ -1,0 +1,140 @@
+name: Mobile Feature Branch
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🧪 Run tests
+        run: |
+          npm run test --workspace=packages/shared --if-present
+          npm run type-check --workspace=apps/mobile
+
+      - name: 🔍 Lint code
+        run: |
+          npm run lint --workspace=apps/mobile --if-present
+
+  build-check:
+    name: Build Check
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔨 Check build
+        run: |
+          cd apps/mobile
+          npm run build --if-present || echo "No build script found, checking TypeScript compilation"
+          npx tsc --noEmit
+
+      - name: 💬 Comment PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: '✅ Mobile app build check passed! Ready for EAS build when merged to develop/main.'
+            });
+
+      - name: 💬 Comment push
+        uses: actions/github-script@v7
+        if: github.event_name == 'push'
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+            
+            await github.rest.repos.createCommitComment({
+              owner,
+              repo,
+              commit_sha: sha,
+              body: '✅ Feature branch tests passed! Merge to develop for preview build or main for production.'
+            });
+
+  manual-build:
+    name: Manual EAS Build (Optional)
+    runs-on: ubuntu-latest
+    needs: [test, build-check]
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[build]')
+    steps:
+      - name: 🏗 Setup repo
+        uses: actions/checkout@v4
+
+      - name: 🏗 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: 🏗 Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🚀 Manual Build on EAS
+        run: |
+          cd apps/mobile
+          eas build --platform android --profile development --non-interactive --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 💬 Comment on manual build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const sha = context.sha;
+            
+            await github.rest.repos.createCommitComment({
+              owner,
+              repo,
+              commit_sha: sha,
+              body: '🔨 Manual development build triggered! Check EAS dashboard for progress.'
+            });
