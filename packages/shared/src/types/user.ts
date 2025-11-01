@@ -19,6 +19,7 @@ export interface FoodProfile {
   displayName?: string; // Display name stored in Cosmos DB
   timezone?: string; // Timezone for streak calculations (e.g., 'America/New_York'), defaults to Eastern Time
   cookingProficiency?: number; // Cooking skill level (1-5 scale), optional
+  defaultServingSize?: number; // Default serving size for recipes (e.g., 4)
   likes: string[];
   dislikes: string[];
   allergens: string[];

@@ -407,6 +407,7 @@ export default function ProfileScreen() {
   const [displayName, setDisplayName] = useState('');
   const [timezone, setTimezone] = useState('America/New_York');
   const [cookingProficiency, setCookingProficiency] = useState<number>(3); // Default to Intermediate
+  const [defaultServingSize, setDefaultServingSize] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -446,6 +447,12 @@ export default function ProfileScreen() {
           setCookingProficiency(loadedProfile.cookingProficiency);
         } else {
           setCookingProficiency(3); // Default to Intermediate
+        }
+
+        if (loadedProfile.defaultServingSize) {
+          setDefaultServingSize(loadedProfile.defaultServingSize.toString());
+        } else {
+          setDefaultServingSize('');
         }
         
         const likesCommon = loadedProfile.likes.filter(l => COMMON_LIKES.includes(l));
@@ -503,6 +510,7 @@ export default function ProfileScreen() {
           displayName: displayName.trim() || undefined,
           timezone: timezone || 'America/New_York',
           cookingProficiency: cookingProficiency,
+          defaultServingSize: defaultServingSize.trim() ? parseInt(defaultServingSize.trim(), 10) || undefined : undefined,
           likes: allLikes,
           dislikes: allDislikes,
           allergens: allAllergens,
@@ -699,6 +707,19 @@ export default function ProfileScreen() {
               <CookingProficiencySlider
                 value={cookingProficiency}
                 onChange={setCookingProficiency}
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Default Serving Size</Text>
+              <Text style={styles.sectionDescription}>
+                Your preferred default number of servings for recipes
+              </Text>
+              <Input
+                value={defaultServingSize}
+                onChangeText={setDefaultServingSize}
+                placeholder="e.g., 4"
+                keyboardType="numeric"
               />
             </View>
           </>
