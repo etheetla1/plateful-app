@@ -30,7 +30,53 @@ export async function formatRecipe(scrapedContent: string, sourceUrl: string, pr
     complianceNote += likesNote;
   }
 
-  const prompt = `You are a recipe formatter. Your task is to extract and structure recipe information from scraped web content.
+  // Detect if this is conversation-based content (for edited recipes)
+  const isConversationBased = scrapedContent.includes('Modified Recipe Conversation:') || 
+                               scrapedContent.includes('User:') || 
+                               scrapedContent.includes('Assistant:');
+  
+  let prompt: string;
+  
+  if (isConversationBased) {
+    // Specialized prompt for conversation-based recipe editing
+    prompt = `You are a recipe formatter. Your task is to extract the FINAL, MODIFIED recipe from a conversation where a user edited a recipe with an AI assistant.
+
+IMPORTANT RULES:
+1. Extract the MODIFIED recipe as described in the conversation - this is an edited version of the original
+2. Use the Assistant's final description of the modified recipe
+3. Include all changes mentioned in the conversation (e.g., ingredient substitutions, quantity adjustments, spice level changes)
+4. If serving count is not mentioned in the conversation, use the original recipe's serving count
+5. If nutrition data is missing, estimate it and mark as "(estimated by AI)"
+6. Calories MUST be per portion, not total
+7. Keep ingredients and instructions concise and clear
+8. The conversation shows the ORIGINAL recipe and then the MODIFICATIONS - extract the FINAL modified recipe${complianceNote}
+
+Conversation content:
+---
+${scrapedContent.substring(0, 8000)}
+---
+
+Return a JSON object with this EXACT structure containing the MODIFIED recipe:
+{
+  "title": "Recipe name (may be modified)",
+  "description": "Brief description of the dish reflecting the modifications",
+  "portions": "Number of servings (e.g., '4 servings' or '4 servings (estimated by AI)')",
+  "ingredients": ["modified ingredient 1", "modified ingredient 2", ...],
+  "instructions": ["modified step 1", "modified step 2", ...],
+  "nutrition": {
+    "calories_per_portion": "XXX kcal or XXX kcal (estimated by AI)",
+    "protein": "XXg or XXg (estimated by AI)",
+    "carbs": "XXg or XXg (estimated by AI)",
+    "fat": "XXg or XXg (estimated by AI)"
+  },
+  "sourceUrl": "${sourceUrl}",
+  "imageUrl": "optional image URL if available"
+}
+
+Return ONLY the JSON object, no other text.`;
+  } else {
+    // Original prompt for scraped web content
+    prompt = `You are a recipe formatter. Your task is to extract and structure recipe information from scraped web content.
 
 IMPORTANT RULES:
 1. Do NOT generate or invent recipes
@@ -64,6 +110,7 @@ Return a JSON object with this EXACT structure:
 }
 
 Return ONLY the JSON object, no other text.`;
+  }
 
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",

@@ -697,7 +697,18 @@ app.post('/save-edited-recipe', async (c) => {
       `Instructions: ${originalRecipe.recipeData.instructions.join('; ')}`;
 
     // Format the modified recipe
-    const modifiedRecipeData = await formatRecipe(scrapedContent, originalRecipe.recipeData.sourceUrl, profile);
+    let modifiedRecipeData: RecipeData;
+    try {
+      console.log('🔄 Formatting edited recipe from conversation...');
+      modifiedRecipeData = await formatRecipe(scrapedContent, originalRecipe.recipeData.sourceUrl, profile);
+      console.log(`✅ Recipe formatted successfully: ${modifiedRecipeData.title}`);
+    } catch (formatError) {
+      console.error('❌ Failed to format edited recipe:', formatError);
+      const errorMessage = formatError instanceof Error ? formatError.message : 'Unknown formatting error';
+      return c.json({ 
+        error: `Failed to format edited recipe: ${errorMessage}. The AI may have had trouble extracting the recipe changes from the conversation.` 
+      }, 500);
+    }
 
     // Preserve image URL from original (always keep it, we'll add an "Edited" banner in UI)
     if (!modifiedRecipeData.imageUrl && originalRecipe.recipeData.imageUrl) {
@@ -722,23 +733,37 @@ app.post('/save-edited-recipe', async (c) => {
       updatedAt: now,
     };
 
-    await recipesContainer.items.create(newRecipe);
+    try {
+      await recipesContainer.items.create(newRecipe);
+      console.log(`✅ Edited recipe saved as new recipe: ${recipeID}`);
+    } catch (createError) {
+      console.error('❌ Failed to create recipe in database:', createError);
+      return c.json({ 
+        error: `Failed to save recipe to database: ${createError instanceof Error ? createError.message : 'Unknown error'}` 
+      }, 500);
+    }
 
     // Update conversation status
-    conversation.status = 'recipe_found';
-    conversation.recipeID = recipeID;
-    conversation.updatedAt = new Date().toISOString();
-    await conversationContainer.item(conversationID, conversationID).replace(conversation);
-
-    console.log(`✅ Edited recipe saved as new recipe: ${recipeID}`);
+    try {
+      conversation.status = 'recipe_found';
+      conversation.recipeID = recipeID;
+      conversation.updatedAt = new Date().toISOString();
+      await conversationContainer.item(conversationID, conversationID).replace(conversation);
+    } catch (updateError) {
+      console.error('⚠️ Failed to update conversation status (recipe was saved):', updateError);
+      // Don't fail the request if conversation update fails - recipe was already saved
+    }
 
     return c.json({ 
       recipe: newRecipe,
       message: 'Recipe saved successfully!'
     }, 201);
   } catch (error) {
-    console.error('Error saving edited recipe:', error);
-    return c.json({ error: 'Failed to save edited recipe' }, 500);
+    console.error('❌ Unexpected error saving edited recipe:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.json({ 
+      error: `Failed to save edited recipe: ${errorMessage}` 
+    }, 500);
   }
 });
 

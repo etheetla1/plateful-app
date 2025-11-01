@@ -46,20 +46,28 @@ export default function ChatScreen() {
 
   // Initialize conversation - check for editing conversation first
   useEffect(() => {
-    if (auth.currentUser && !conversationID) {
-      // Check if we're coming from recipe editing
-      if (params.editingConversationID) {
+    if (!auth.currentUser) return;
+
+    // If we have an editingConversationID param and it's different from current, switch to it
+    if (params.editingConversationID) {
+      if (params.editingConversationID !== conversationID) {
+        // Clear existing state and switch to the editing conversation
+        setMessages([]);
+        setConversation(null);
+        setCurrentIntent(null);
         setConversationID(params.editingConversationID);
-        return;
       }
-      
-      // Otherwise start new conversation
+      return;
+    }
+
+    // If no conversationID exists, start a new conversation
+    if (!conversationID) {
       const timer = setTimeout(() => {
         startNewConversation();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [params.editingConversationID]);
+  }, [params.editingConversationID, conversationID]);
 
   // Load messages when conversationID changes
   useEffect(() => {
@@ -178,11 +186,14 @@ export default function ChatScreen() {
       // Check if this is an editing conversation - if so, don't send greeting
       // (greeting is sent by load-recipe endpoint)
       if (data.conversation.status !== 'editing_recipe') {
-        // Send initial greeting
+        // Send initial greeting (don't add to local state - let loadMessages handle it)
         await sendAssistantMessage(
           newConvID,
-          "Hi! I'm here to help you discover delicious recipes. What kind of meal are you in the mood for today?"
+          "Hi! I'm here to help you discover delicious recipes. What kind of meal are you in the mood for today?",
+          false // Don't add to local state
         );
+        // Reload messages to get the greeting from server (this will be called by the useEffect, but we call it explicitly to ensure it happens after the message is saved)
+        setTimeout(() => loadMessages(), 200);
       }
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
@@ -191,7 +202,7 @@ export default function ChatScreen() {
     }
   };
 
-  const sendAssistantMessage = async (convID: string, content: string) => {
+  const sendAssistantMessage = async (convID: string, content: string, addToLocalState: boolean = true) => {
     try {
       console.log(`📤 Sending assistant message to ${convID}`);
       
@@ -215,10 +226,10 @@ export default function ChatScreen() {
       console.log('✅ Assistant message sent:', data);
       console.log('📨 Message object:', data.message);
       
-      // Add the message to the UI
-      if (data.message) {
+      // Only add to local state if requested (skip for initial greeting to avoid duplicates)
+      if (addToLocalState && data.message) {
         setMessages(prev => [...prev, data.message]);
-      } else {
+      } else if (!data.message) {
         console.error('❌ No message in assistant response:', data);
       }
     } catch (error) {

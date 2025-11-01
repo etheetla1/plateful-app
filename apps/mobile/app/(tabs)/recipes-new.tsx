@@ -423,8 +423,8 @@ function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGrocery
   );
 }
 
-// Edited Badge Component with Sparkle Animation
-function EditedBadge({ recipeID }: { recipeID: string }) {
+// Edited Banner Inline Component with Sparkle Animation
+function EditedBannerInline() {
   const sparkle1 = useRef(new Animated.Value(0)).current;
   const sparkle2 = useRef(new Animated.Value(0)).current;
   const sparkle3 = useRef(new Animated.Value(0)).current;
@@ -455,15 +455,13 @@ function EditedBadge({ recipeID }: { recipeID: string }) {
   }, []);
 
   return (
-    <View style={styles.editedBadgeWrapper}>
-      <View style={styles.editedBadge}>
-        <Text style={styles.editedBadgeText}>✨</Text>
-      </View>
-      <View style={styles.badgeSparkleContainer}>
+    <View style={styles.editedBannerInline}>
+      <Text style={styles.editedBannerInlineText}>Edited</Text>
+      <View style={styles.inlineBannerSparkleContainer}>
         <Animated.View
           style={[
-            styles.badgeSparkleDot,
-            styles.badgeSparkle1,
+            styles.inlineBannerSparkleDot,
+            styles.inlineBannerSparkle1,
             {
               opacity: sparkle1,
               transform: [{
@@ -477,8 +475,8 @@ function EditedBadge({ recipeID }: { recipeID: string }) {
         />
         <Animated.View
           style={[
-            styles.badgeSparkleDot,
-            styles.badgeSparkle2,
+            styles.inlineBannerSparkleDot,
+            styles.inlineBannerSparkle2,
             {
               opacity: sparkle2,
               transform: [{
@@ -492,8 +490,8 @@ function EditedBadge({ recipeID }: { recipeID: string }) {
         />
         <Animated.View
           style={[
-            styles.badgeSparkleDot,
-            styles.badgeSparkle3,
+            styles.inlineBannerSparkleDot,
+            styles.inlineBannerSparkle3,
             {
               opacity: sparkle3,
               transform: [{
@@ -1015,22 +1013,24 @@ export default function RecipesScreen() {
               onPress={() => setSelectedRecipe(recipe)}
             >
               <View style={styles.recipeCardContent}>
-                {recipe.recipeData.imageUrl ? (
-                  <View style={styles.recipeCardImageContainer}>
-                    <Image
-                      source={{ uri: recipe.recipeData.imageUrl }}
-                      style={styles.recipeCardImage}
-                      resizeMode="cover"
-                    />
-                    {recipe.isEdited && (
-                      <EditedBadge recipeID={recipe.recipeID} />
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.recipeCardImagePlaceholder}>
-                    <Ionicons name="restaurant" size={24} color={colors.textSecondary} />
-                  </View>
-                )}
+                <View style={styles.recipeCardImageWrapper}>
+                  {recipe.recipeData.imageUrl ? (
+                    <View style={styles.recipeCardImageContainer}>
+                      <Image
+                        source={{ uri: recipe.recipeData.imageUrl }}
+                        style={styles.recipeCardImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : (
+                    <View style={styles.recipeCardImagePlaceholder}>
+                      <Ionicons name="restaurant" size={24} color={colors.textSecondary} />
+                    </View>
+                  )}
+                  {recipe.isEdited && (
+                    <EditedBannerInline />
+                  )}
+                </View>
                 <View style={styles.recipeCardText}>
                   <View style={styles.recipeCardHeader}>
                     <Text style={styles.recipeCardTitle} numberOfLines={2}>{recipe.recipeData.title}</Text>
@@ -1194,11 +1194,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  recipeCardImageWrapper: {
+    width: 100,
+    alignItems: 'center',
+  },
   recipeCardImageContainer: {
     width: 100,
     height: 100,
     borderRadius: 8,
-    position: 'relative',
     overflow: 'hidden',
   },
   recipeCardImage: {
@@ -1207,28 +1210,52 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.background,
   },
-  editedBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(255, 215, 0, 0.85)', // Gold with transparency
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+  editedBannerInline: {
+    marginTop: 6,
+    width: 100, // Span full width of image
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: 'rgba(255, 215, 0, 0.85)', // Gold color with transparency
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.secondary, // Theme grey border for contrast
+    position: 'relative',
     overflow: 'visible',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
   },
-  editedBadgeText: {
-    fontSize: 12,
+  editedBannerInlineText: {
+    fontSize: 10,
     fontWeight: '600',
+    color: '#1A1A1A', // Dark text for contrast on gold
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  inlineBannerSparkleContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineBannerSparkleDot: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 1.5,
+  },
+  inlineBannerSparkle1: {
+    top: '25%',
+    left: '20%',
+  },
+  inlineBannerSparkle2: {
+    top: '30%',
+    right: '25%',
+  },
+  inlineBannerSparkle3: {
+    bottom: '30%',
+    left: '50%',
   },
   recipeCardImagePlaceholder: {
     width: 100,
@@ -1347,13 +1374,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  editedBadgeWrapper: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 24,
-    height: 24,
-  },
   bannerSparkleContainer: {
     position: 'absolute',
     top: 0,
@@ -1380,34 +1400,6 @@ const styles = StyleSheet.create({
   },
   bannerSparkle3: {
     top: '30%',
-    left: '50%',
-  },
-  badgeSparkleContainer: {
-    position: 'absolute',
-    top: -8,
-    left: -8,
-    right: -8,
-    bottom: -8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeSparkleDot: {
-    position: 'absolute',
-    width: 4,
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 1)',
-    borderRadius: 2,
-  },
-  badgeSparkle1: {
-    top: '10%',
-    left: '10%',
-  },
-  badgeSparkle2: {
-    top: '20%',
-    right: '10%',
-  },
-  badgeSparkle3: {
-    bottom: '10%',
     left: '50%',
   },
   recipeImagePlaceholder: {
