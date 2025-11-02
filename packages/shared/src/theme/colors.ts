@@ -35,6 +35,10 @@ export const semanticColors = {
   warning: colors.secondary,  // Use burnt orange for warnings
   info: '#64B5F6',           // Keep blue for info
   disabled: '#999999',       // Gray for disabled states
+  // Warning-specific colors
+  warningBackground: '#FFF4E6',  // Light amber background for warnings
+  warningBorder: '#FFB74D',       // Amber border/icon for warnings
+  criticalBackground: '#FFEBEE', // Light red background for critical warnings
 } as const;
 
 // Export all colors together

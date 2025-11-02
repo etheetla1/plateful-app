@@ -17,10 +17,12 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { Recipe, GroceryList, PantryItem } from '@plateful/shared';
-import { colors, semanticColors, parseIngredients, findPantryMatch } from '@plateful/shared';
+import type { Recipe, GroceryList, PantryItem, FoodProfile, ScalingWarning } from '@plateful/shared';
+import { colors, semanticColors, parseIngredients, findPantryMatch, extractPortionNumber, scaleIngredient, scaleNutrition, detectCookingConstraints, checkScalingConstraints } from '@plateful/shared';
 import { auth } from '../../src/config/firebase';
 import Header from '../../src/components/Header';
+import PortionSelector from '../../src/components/PortionSelector';
+import ScalingWarningsModal from '../../src/components/ScalingWarningsModal';
 import { useRouter } from 'expo-router';
 
 interface IngredientItem {
@@ -609,6 +611,11 @@ export default function RecipesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAddToGrocery, setShowAddToGrocery] = useState(false);
   const [recipeForGrocery, setRecipeForGrocery] = useState<Recipe | null>(null);
+  const [userProfile, setUserProfile] = useState<FoodProfile | null>(null);
+  const [currentPortionSize, setCurrentPortionSize] = useState<number | null>(null);
+  const [showWarningsModal, setShowWarningsModal] = useState(false);
+  const [currentWarnings, setCurrentWarnings] = useState<ScalingWarning[]>([]);
+  const warningsShownRef = useRef<string | null>(null);
   
   // Sparkle animations for edited recipes
   const sparkleAnims = useRef<{ [key: string]: Animated.Value[] }>({});
@@ -616,8 +623,34 @@ export default function RecipesScreen() {
   useEffect(() => {
     if (auth.currentUser) {
       loadRecipes();
+      loadUserProfile();
     }
   }, [recipeFilter]);
+
+  useEffect(() => {
+    if (selectedRecipe) {
+      // Calculate initial portion size: userPortionSize || defaultServingSize || originalPortions
+      const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
+      const initialPortions = selectedRecipe.userPortionSize || 
+                             userProfile?.defaultServingSize || 
+                             originalPortions;
+      setCurrentPortionSize(initialPortions);
+      
+      // Reset warnings shown flag ONLY when entering a completely different recipe
+      const currentRecipeID = selectedRecipe.recipeID;
+      if (warningsShownRef.current !== currentRecipeID) {
+        warningsShownRef.current = null; // Reset for new recipe
+        setShowWarningsModal(false);
+      }
+      
+      // Don't auto-show on initial load - let user trigger it by adjusting portions
+    } else {
+      setCurrentPortionSize(null);
+      setShowWarningsModal(false);
+      setCurrentWarnings([]);
+      warningsShownRef.current = null;
+    }
+  }, [selectedRecipe?.recipeID, userProfile?.defaultServingSize]); // Trigger when recipeID changes or profile loads
 
   const loadRecipes = async () => {
     if (!auth.currentUser) return;
@@ -646,6 +679,72 @@ export default function RecipesScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadRecipes();
+  };
+
+  const loadUserProfile = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/api/profile/${auth.currentUser.uid}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUserProfile(data.profile || null);
+      }
+    } catch (error) {
+      console.error('Failed to load user profile:', error);
+      setUserProfile(null);
+    }
+  };
+
+  const handlePortionSizeChange = async (newPortions: number) => {
+    if (!selectedRecipe || !auth.currentUser) return;
+
+    setCurrentPortionSize(newPortions);
+
+    // Check for warnings when portion size changes
+    const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
+    const constraints = detectCookingConstraints(
+      selectedRecipe.recipeData.instructions,
+      selectedRecipe.recipeData.title,
+      selectedRecipe.recipeData.description
+    );
+    const warnings = checkScalingConstraints(originalPortions, newPortions, constraints);
+    
+    
+    if (warnings.length > 0) {
+      setCurrentWarnings(warnings);
+      // Only show modal if we haven't shown it for this recipe yet in this session
+      if (warningsShownRef.current !== selectedRecipe.recipeID) {
+        setShowWarningsModal(true);
+        warningsShownRef.current = selectedRecipe.recipeID; // Mark as shown
+      }
+    } else {
+      setShowWarningsModal(false);
+      setCurrentWarnings([]);
+    }
+
+    // Save to backend
+    try {
+      const response = await fetch(`${API_BASE}/api/generate-recipe/${selectedRecipe.recipeID}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userID: auth.currentUser.uid,
+          userPortionSize: newPortions,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update local state
+        setRecipes(prev =>
+          prev.map(r => (r.recipeID === selectedRecipe.recipeID ? data.recipe : r))
+        );
+        setSelectedRecipe(data.recipe);
+      }
+    } catch (error) {
+      console.error('Failed to save portion size:', error);
+    }
   };
 
   const toggleSaveRecipe = async (recipe: Recipe) => {
@@ -835,31 +934,55 @@ export default function RecipesScreen() {
             <Text style={styles.description}>{selectedRecipe.recipeData.description}</Text>
           )}
 
-          <View style={styles.metaInfo}>
-            <View style={styles.metaItem}>
-              <Ionicons name="people" size={16} color={colors.textSecondary} />
-              <Text style={styles.metaText}>{selectedRecipe.recipeData.portions}</Text>
-            </View>
-            {selectedRecipe.recipeData.nutrition?.calories_per_portion && (
+          {currentPortionSize !== null && (
+            <PortionSelector
+              portions={currentPortionSize}
+              originalPortions={extractPortionNumber(selectedRecipe.recipeData.portions)}
+              defaultPortions={userProfile?.defaultServingSize}
+              onPortionsChange={handlePortionSizeChange}
+            />
+          )}
+
+          {selectedRecipe.recipeData.nutrition?.calories_per_portion && (
+            <View style={styles.metaInfo}>
               <View style={styles.metaItem}>
                 <Ionicons name="flame" size={16} color={colors.textSecondary} />
                 <Text style={styles.metaText}>
                   {selectedRecipe.recipeData.nutrition.calories_per_portion}
                 </Text>
               </View>
-            )}
-          </View>
+            </View>
+          )}
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Ionicons name="list" size={20} color={colors.primary} /> Ingredients
             </Text>
-            {selectedRecipe.recipeData.ingredients.map((ingredient, index) => (
-              <View key={index} style={styles.ingredientItem}>
-                <Text style={styles.bullet}>•</Text>
-                <Text style={styles.ingredientText}>{ingredient}</Text>
-              </View>
-            ))}
+            {currentPortionSize !== null && (() => {
+              const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
+              const isScaled = currentPortionSize !== originalPortions;
+              
+              return (
+                <>
+                  {isScaled && (
+                    <Text style={styles.scalingNote}>
+                      Original: {selectedRecipe.recipeData.portions}
+                    </Text>
+                  )}
+                  {selectedRecipe.recipeData.ingredients.map((ingredient, index) => {
+                    const scaledIngredient = isScaled
+                      ? scaleIngredient(ingredient, originalPortions, currentPortionSize)
+                      : ingredient;
+                    return (
+                      <View key={index} style={styles.ingredientItem}>
+                        <Text style={styles.bullet}>•</Text>
+                        <Text style={styles.ingredientText}>{scaledIngredient}</Text>
+                      </View>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </View>
 
           <View style={styles.section}>
@@ -876,37 +999,47 @@ export default function RecipesScreen() {
             ))}
           </View>
 
-          {selectedRecipe.recipeData.nutrition && (
+          {selectedRecipe.recipeData.nutrition && currentPortionSize !== null && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
                 <Ionicons name="nutrition" size={20} color={colors.primary} /> Nutrition
               </Text>
-              <View style={styles.nutritionGrid}>
-                {selectedRecipe.recipeData.nutrition.protein && (
-                  <View style={styles.nutritionItem}>
-                    <Text style={styles.nutritionLabel}>Protein</Text>
-                    <Text style={styles.nutritionValue}>
-                      {selectedRecipe.recipeData.nutrition.protein}
-                    </Text>
+              {(() => {
+                const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
+                const scaleFactor = currentPortionSize / originalPortions;
+                const scaledNutrition = scaleFactor !== 1
+                  ? scaleNutrition(selectedRecipe.recipeData.nutrition, scaleFactor)
+                  : selectedRecipe.recipeData.nutrition;
+                
+                return (
+                  <View style={styles.nutritionGrid}>
+                    {scaledNutrition.protein && (
+                      <View style={styles.nutritionItem}>
+                        <Text style={styles.nutritionLabel}>Protein</Text>
+                        <Text style={styles.nutritionValue}>
+                          {scaledNutrition.protein}
+                        </Text>
+                      </View>
+                    )}
+                    {scaledNutrition.carbs && (
+                      <View style={styles.nutritionItem}>
+                        <Text style={styles.nutritionLabel}>Carbs</Text>
+                        <Text style={styles.nutritionValue}>
+                          {scaledNutrition.carbs}
+                        </Text>
+                      </View>
+                    )}
+                    {scaledNutrition.fat && (
+                      <View style={styles.nutritionItem}>
+                        <Text style={styles.nutritionLabel}>Fat</Text>
+                        <Text style={styles.nutritionValue}>
+                          {scaledNutrition.fat}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                )}
-                {selectedRecipe.recipeData.nutrition.carbs && (
-                  <View style={styles.nutritionItem}>
-                    <Text style={styles.nutritionLabel}>Carbs</Text>
-                    <Text style={styles.nutritionValue}>
-                      {selectedRecipe.recipeData.nutrition.carbs}
-                    </Text>
-                  </View>
-                )}
-                {selectedRecipe.recipeData.nutrition.fat && (
-                  <View style={styles.nutritionItem}>
-                    <Text style={styles.nutritionLabel}>Fat</Text>
-                    <Text style={styles.nutritionValue}>
-                      {selectedRecipe.recipeData.nutrition.fat}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                );
+              })()}
             </View>
           )}
 
@@ -948,6 +1081,12 @@ export default function RecipesScreen() {
             setShowAddToGrocery(false);
             setRecipeForGrocery(null);
           }}
+        />
+
+        <ScalingWarningsModal
+          visible={showWarningsModal}
+          warnings={currentWarnings}
+          onClose={() => setShowWarningsModal(false)}
         />
       </ScrollView>
     );
@@ -1094,6 +1233,12 @@ export default function RecipesScreen() {
           setShowAddToGrocery(false);
           setRecipeForGrocery(null);
         }}
+      />
+
+      <ScalingWarningsModal
+        visible={showWarningsModal}
+        warnings={currentWarnings}
+        onClose={() => setShowWarningsModal(false)}
       />
     </View>
   );
@@ -1433,6 +1578,13 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  scalingNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: 8,
+    marginLeft: 8,
   },
   section: {
     marginBottom: 24,

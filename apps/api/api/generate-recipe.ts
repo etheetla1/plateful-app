@@ -329,7 +329,7 @@ app.get('/:recipeID', async (c) => {
 });
 
 /**
- * Save/unsave a recipe
+ * Save/unsave a recipe or update user portion size
  * PATCH /recipes/:recipeID
  */
 app.patch('/:recipeID', async (c) => {
@@ -339,7 +339,7 @@ app.patch('/:recipeID', async (c) => {
 
   try {
     const recipeID = c.req.param('recipeID');
-    const { userID, isSaved } = await c.req.json();
+    const { userID, isSaved, userPortionSize } = await c.req.json();
 
     if (!userID) {
       return c.json({ error: 'userID is required' }, 400);
@@ -361,6 +361,14 @@ app.patch('/:recipeID', async (c) => {
     if (typeof isSaved === 'boolean') {
       recipe.isSaved = isSaved;
     }
+
+    if (typeof userPortionSize === 'number' && userPortionSize > 0) {
+      recipe.userPortionSize = userPortionSize;
+    } else if (userPortionSize === null || userPortionSize === undefined) {
+      // Allow clearing userPortionSize by sending null
+      delete recipe.userPortionSize;
+    }
+
     recipe.updatedAt = new Date().toISOString();
 
     await container.item(recipeID, userID).replace(recipe);

@@ -29,6 +29,7 @@ export interface Recipe {
   updatedAt: string;
   isEdited?: boolean; // Flag to indicate this recipe was edited from an original
   originalRecipeID?: string; // ID of the original recipe if this was edited
+  userPortionSize?: number; // User's preferred serving count for this recipe
 }
 
 export interface RecipeGenerateRequest {
