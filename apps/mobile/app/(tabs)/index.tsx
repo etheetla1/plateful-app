@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, semanticColors } from '../../theme/colors';
 import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
 import Header from '../../src/components/Header';
@@ -601,7 +602,7 @@ export default function Dashboard() {
       {/* Daily Calories */}
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionIcon}>🔻</Text>
+          <Ionicons name="calendar" size={20} color={colors.textPrimary} style={styles.sectionIcon} />
           <Text style={styles.sectionTitle}>Daily Calories (Last 7 Days)</Text>
         </View>
 
@@ -648,48 +649,109 @@ export default function Dashboard() {
       </View>
 
       {/* Daily Macro Distribution */}
-      <View style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionIcon}>🔻</Text>
-          <Text style={styles.sectionTitle}>Today's Macro Distribution</Text>
-        </View>
+      {userProfile?.dailyMacroTargets && (
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="stats-chart" size={20} color={colors.textPrimary} style={styles.sectionIcon} />
+            <Text style={styles.sectionTitle}>Today's Macro Distribution</Text>
+          </View>
 
-        <View style={styles.macroContainer}>
-          {/* Display today's macros */}
-          <View style={styles.macroList}>
-            <View style={styles.macroListItem}>
-              <View style={[styles.macroDot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.macroLabel}>Protein</Text>
-              <Text style={styles.macroValue}>{Math.round(todayNutrition.protein)}g</Text>
-              {userProfile?.dailyMacroTargets?.protein && (
-                <Text style={styles.macroTarget}>
-                  / {userProfile.dailyMacroTargets.protein}g
-                </Text>
-              )}
+          <View style={styles.macroContainer}>
+            {/* Protein */}
+            <View style={styles.macroItem}>
+              <View style={styles.macroHeader}>
+                <View style={styles.macroLabelContainer}>
+                  <View style={[styles.macroColorIndicator, { backgroundColor: semanticColors.protein }]} />
+                  <Text style={styles.macroLabelBold}>Protein</Text>
+                </View>
+                <View style={styles.macroValueContainer}>
+                  <Text style={styles.macroCurrentValue}>{Math.round(todayNutrition.protein)}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                  <Text style={styles.macroSeparator}> / </Text>
+                  <Text style={styles.macroTargetValue}>{userProfile.dailyMacroTargets.protein}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                </View>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View 
+                  style={[
+                    styles.progressBar,
+                    { 
+                      backgroundColor: semanticColors.protein,
+                      width: `${Math.min((todayNutrition.protein / userProfile.dailyMacroTargets.protein) * 100, 100)}%`,
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.macroPercentage}>
+                {calculatePercentage(todayNutrition.protein, userProfile.dailyMacroTargets.protein) || '0'}%
+              </Text>
             </View>
-            <View style={styles.macroListItem}>
-              <View style={[styles.macroDot, { backgroundColor: colors.secondary }]} />
-              <Text style={styles.macroLabel}>Carbs</Text>
-              <Text style={styles.macroValue}>{Math.round(todayNutrition.carbs)}g</Text>
-              {userProfile?.dailyMacroTargets?.carbs && (
-                <Text style={styles.macroTarget}>
-                  / {userProfile.dailyMacroTargets.carbs}g
-                </Text>
-              )}
+
+            {/* Carbs */}
+            <View style={styles.macroItem}>
+              <View style={styles.macroHeader}>
+                <View style={styles.macroLabelContainer}>
+                  <View style={[styles.macroColorIndicator, { backgroundColor: semanticColors.carbs }]} />
+                  <Text style={styles.macroLabelBold}>Carbs</Text>
+                </View>
+                <View style={styles.macroValueContainer}>
+                  <Text style={styles.macroCurrentValue}>{Math.round(todayNutrition.carbs)}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                  <Text style={styles.macroSeparator}> / </Text>
+                  <Text style={styles.macroTargetValue}>{userProfile.dailyMacroTargets.carbs}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                </View>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View 
+                  style={[
+                    styles.progressBar,
+                    { 
+                      backgroundColor: semanticColors.carbs,
+                      width: `${Math.min((todayNutrition.carbs / userProfile.dailyMacroTargets.carbs) * 100, 100)}%`,
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.macroPercentage}>
+                {calculatePercentage(todayNutrition.carbs, userProfile.dailyMacroTargets.carbs) || '0'}%
+              </Text>
             </View>
-            <View style={styles.macroListItem}>
-              <View style={[styles.macroDot, { backgroundColor: colors.secondaryLight || '#FFC107' }]} />
-              <Text style={styles.macroLabel}>Fat</Text>
-              <Text style={styles.macroValue}>{Math.round(todayNutrition.fat)}g</Text>
-              {userProfile?.dailyMacroTargets?.fat && (
-                <Text style={styles.macroTarget}>
-                  / {userProfile.dailyMacroTargets.fat}g
-                </Text>
-              )}
+
+            {/* Fat */}
+            <View style={styles.macroItem}>
+              <View style={styles.macroHeader}>
+                <View style={styles.macroLabelContainer}>
+                  <View style={[styles.macroColorIndicator, { backgroundColor: semanticColors.fat }]} />
+                  <Text style={styles.macroLabelBold}>Fat</Text>
+                </View>
+                <View style={styles.macroValueContainer}>
+                  <Text style={styles.macroCurrentValue}>{Math.round(todayNutrition.fat)}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                  <Text style={styles.macroSeparator}> / </Text>
+                  <Text style={styles.macroTargetValue}>{userProfile.dailyMacroTargets.fat}</Text>
+                  <Text style={styles.macroUnit}>g</Text>
+                </View>
+              </View>
+              <View style={styles.progressBarContainer}>
+                <View 
+                  style={[
+                    styles.progressBar,
+                    { 
+                      backgroundColor: semanticColors.fat,
+                      width: `${Math.min((todayNutrition.fat / userProfile.dailyMacroTargets.fat) * 100, 100)}%`,
+                    }
+                  ]} 
+                />
+              </View>
+              <Text style={styles.macroPercentage}>
+                {calculatePercentage(todayNutrition.fat, userProfile.dailyMacroTargets.fat) || '0'}%
+              </Text>
             </View>
           </View>
         </View>
-      </View>
+      )}
 
       <View style={{ height: 100 }} />
     </ScrollView>
@@ -831,7 +893,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionIcon: {
-    fontSize: 16,
     marginRight: 8,
   },
   sectionTitle: {
@@ -873,10 +934,75 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   macroContainer: {
+    gap: 20,
+    marginTop: 8,
+  },
+  macroItem: {
+    marginBottom: 16,
+  },
+  macroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  macroLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  macroColorIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  macroLabelBold: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  macroValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
+  macroCurrentValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  macroTargetValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  macroUnit: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  macroSeparator: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 8,
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+    minWidth: 2,
+  },
+  macroPercentage: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'right',
   },
   donutChart: {
     width: 140,
@@ -954,8 +1080,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: 2,
-    backgroundColor: semanticColors.error || '#F44336',
+    height: 3,
+    backgroundColor: colors.edited,
     zIndex: 1,
   },
   targetLabel: {
@@ -963,33 +1089,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 8,
-  },
-  // Macro list styles
-  macroList: {
-    gap: 16,
-  },
-  macroListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  macroDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  macroLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  macroValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  macroTarget: {
-    fontSize: 14,
-    color: colors.textSecondary,
   },
 });

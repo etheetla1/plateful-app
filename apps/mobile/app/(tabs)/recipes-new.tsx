@@ -2176,7 +2176,7 @@ const styles = StyleSheet.create({
     width: 100, // Span full width of image
     paddingVertical: 4,
     paddingHorizontal: 4,
-    backgroundColor: 'rgba(255, 215, 0, 0.85)', // Gold color with transparency
+    backgroundColor: colors.edited,
     borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
@@ -2186,7 +2186,7 @@ const styles = StyleSheet.create({
   editedBannerInlineText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#1A1A1A', // Dark text for contrast on gold
+    color: colors.surface,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -2319,7 +2319,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(255, 215, 0, 0.85)', // Gold with transparency
+    backgroundColor: colors.edited,
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignItems: 'center',
@@ -2330,7 +2330,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.secondary, // Theme grey border below banner
   },
   editedBannerText: {
-    color: '#1a1a1a',
+    color: colors.surface,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,

@@ -26,6 +26,9 @@ export const colors = {
   // Light variants (2)
   primaryLight: '#A8E6D9',   // Light mint - subtle backgrounds
   secondaryLight: '#9CA3A8', // Light slate - subtle backgrounds
+  
+  // Utility color for edited indicators and chart lines
+  edited: '#6FA0C9',         // Medium grey-blue for edited items and chart target lines
 } as const;
 
 // Semantic color mappings
@@ -39,6 +42,12 @@ export const semanticColors = {
   warningBackground: '#FFF4E6',  // Light amber background for warnings
   warningBorder: '#FFB74D',       // Amber border/icon for warnings
   criticalBackground: '#FFEBEE', // Light red background for critical warnings
+  // Macro colors (using existing theme colors where possible)
+  protein: colors.primary,      // Mint for protein
+  carbs: colors.edited,         // Pale grey-blue for carbs
+  fat: colors.secondary,        // Slate gray for fat
+  // Gold color for calorie bars
+  gold: '#FFD700',              // Gold for calorie visualization
 } as const;
 
 // Export all colors together
