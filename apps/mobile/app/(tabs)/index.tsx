@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors } from '../../theme/colors';
+import { colors, semanticColors } from '../../theme/colors';
 import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
 import Header from '../../src/components/Header';
 import { auth } from '../../src/config/firebase';
@@ -245,29 +245,54 @@ export default function Dashboard() {
     if (!auth.currentUser) return;
 
     try {
-      // Fetch recipes to calculate streak
-      const response = await fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`);
+      // Fetch both recipes and tracked meals to calculate streak
+      const today = getTodayInTimezone(userTimezone);
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 365); // Last year for streak calculation
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 7); // Next week to catch any future dates
       
-      if (!response.ok) {
+      const startDateStr = getDateStringInTimezone(startDate, userTimezone);
+      const endDateStr = getDateStringInTimezone(endDate, userTimezone);
+
+      const [recipesResponse, mealsResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`),
+        fetch(`${API_BASE}/api/meal-tracking/user/${auth.currentUser.uid}/range?startDate=${startDateStr}&endDate=${endDateStr}`).catch(() => null),
+      ]);
+
+      if (!recipesResponse.ok) {
         throw new Error('Failed to load recipes');
       }
 
-      const data = await response.json();
-      const recipes = data.recipes || [];
+      const recipesData = await recipesResponse.json();
+      const recipes = recipesData.recipes || [];
 
       // Group recipes by date (YYYY-MM-DD) in user's timezone
-      const recipesByDate = new Set<string>();
+      const activityByDate = new Set<string>();
       recipes.forEach((recipe: any) => {
         if (recipe.createdAt) {
           const date = new Date(recipe.createdAt);
           const dateStr = getDateStringInTimezone(date, userTimezone);
-          recipesByDate.add(dateStr);
+          activityByDate.add(dateStr);
         }
       });
 
+      // Also include tracked meals in the activity
+      if (mealsResponse && mealsResponse.ok) {
+        const mealsData = await mealsResponse.json();
+        const dailyData = mealsData.dailyData || {};
+        
+        // Add all dates that have tracked meals
+        Object.keys(dailyData).forEach((dateStr) => {
+          const dayData = dailyData[dateStr];
+          if (dayData.meals && dayData.meals.length > 0) {
+            activityByDate.add(dateStr);
+          }
+        });
+      }
+
       // Generate last 7 days with actual calendar dates in user's timezone
       const days: DayInfo[] = [];
-      const today = getTodayInTimezone(userTimezone);
 
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
@@ -289,7 +314,7 @@ export default function Dashboard() {
           date,
           dayOfMonth,
           dayName,
-          completed: recipesByDate.has(dateStr),
+          completed: activityByDate.has(dateStr),
         });
       }
 
@@ -302,13 +327,13 @@ export default function Dashboard() {
       // If today has activity, start counting from today
       // Otherwise start from yesterday
       let checkDate = new Date(today);
-      if (!recipesByDate.has(todayStr)) {
+      if (!activityByDate.has(todayStr)) {
         checkDate.setDate(checkDate.getDate() - 1);
       }
 
       while (streak < 365) { // Cap at 365 days
         const checkDateStr = getDateStringInTimezone(checkDate, userTimezone);
-        if (recipesByDate.has(checkDateStr)) {
+        if (activityByDate.has(checkDateStr)) {
           streak++;
           checkDate.setDate(checkDate.getDate() - 1);
         } else {
@@ -345,21 +370,6 @@ export default function Dashboard() {
       setDayStreak(0);
     }
   }, [userTimezone]);
-
-  // Update display name, timezone, and streak when screen comes into focus (e.g., after updating in profile)
-  useFocusEffect(
-    useCallback(() => {
-      // Load profile first (which sets timezone), then load streak data and nutrition
-      loadProfile().then(() => {
-        loadStreakData();
-        loadWeeklyNutrition();
-      }).catch(() => {
-        // Even if profile load fails, try to load streak with default timezone
-        loadStreakData();
-        loadWeeklyNutrition();
-      });
-    }, [loadProfile, loadStreakData, loadWeeklyNutrition])
-  );
 
   // Load weekly nutrition data
   const loadWeeklyNutrition = useCallback(async (showRefreshing = false) => {
@@ -437,6 +447,21 @@ export default function Dashboard() {
       }
     }
   }, [userTimezone]);
+
+  // Update display name, timezone, and streak when screen comes into focus (e.g., after updating in profile)
+  useFocusEffect(
+    useCallback(() => {
+      // Load profile first (which sets timezone), then load streak data and nutrition
+      loadProfile().then(() => {
+        loadStreakData();
+        loadWeeklyNutrition();
+      }).catch(() => {
+        // Even if profile load fails, try to load streak with default timezone
+        loadStreakData();
+        loadWeeklyNutrition();
+      });
+    }, [loadProfile, loadStreakData, loadWeeklyNutrition])
+  );
 
   const onRefresh = useCallback(() => {
     loadProfile().then(() => {
@@ -914,7 +939,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: colors.error || '#F44336',
+    backgroundColor: semanticColors.error || '#F44336',
     zIndex: 1,
   },
   targetLabel: {
