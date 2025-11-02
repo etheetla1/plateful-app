@@ -41,11 +41,12 @@ interface IngredientItem {
 interface AddToGroceryModalProps {
   visible: boolean;
   recipe: Recipe | null;
+  currentPortionSize?: number | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGroceryModalProps) {
+function AddToGroceryModal({ visible, recipe, currentPortionSize, onClose, onSuccess }: AddToGroceryModalProps) {
   // API endpoint - platform aware
   const API_BASE = Platform.select({
     web: 'http://localhost:3001',
@@ -74,7 +75,7 @@ function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGrocery
     if (visible && recipe && pantryItems.length >= 0) {
       parseRecipeIngredients();
     }
-  }, [visible, recipe, pantryItems]);
+  }, [visible, recipe, pantryItems, currentPortionSize]);
 
   const loadLists = async () => {
     if (!auth.currentUser) return;
@@ -117,7 +118,22 @@ function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGrocery
   const parseRecipeIngredients = () => {
     if (!recipe) return;
 
-    const parsed = parseIngredients(recipe.recipeData.ingredients);
+    // Scale ingredients if portion size is different from original
+    const originalPortions = extractPortionNumber(recipe.recipeData.portions);
+    // Use currentPortionSize if provided, otherwise use recipe's userPortionSize, or fall back to original
+    const targetPortions = currentPortionSize ?? recipe.userPortionSize ?? originalPortions;
+    const shouldScale = targetPortions !== originalPortions;
+
+    // Scale ingredients before parsing
+    const ingredientsToParse = shouldScale
+      ? recipe.recipeData.ingredients.map(ing => {
+          const scaled = scaleIngredient(ing, originalPortions, targetPortions);
+          return scaled;
+        })
+      : recipe.recipeData.ingredients;
+
+    // Parse the (scaled) ingredient strings
+    const parsed = parseIngredients(ingredientsToParse);
     
     const ingredientItems: IngredientItem[] = parsed.map(item => {
       const pantryMatch = findPantryMatch(item.name, pantryItems);
@@ -368,9 +384,9 @@ function AddToGroceryModal({ visible, recipe, onClose, onSuccess }: AddToGrocery
                         ]}>
                           {item.name}
                         </Text>
-                        {item.quantity > 1 && (
+                        {item.quantity > 0 && (
                           <Text style={addGroceryStyles.ingredientQuantity}>
-                            {item.quantity} {item.unit}
+                            {item.quantity} {item.unit || ''}
                           </Text>
                         )}
                         {isFuzzyMatch && item.pantryMatch?.item && (
@@ -1229,6 +1245,7 @@ export default function RecipesScreen() {
       <AddToGroceryModal
         visible={showAddToGrocery}
         recipe={recipeForGrocery}
+        currentPortionSize={currentPortionSize}
         onClose={() => {
           setShowAddToGrocery(false);
           setRecipeForGrocery(null);

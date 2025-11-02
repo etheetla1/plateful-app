@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { getContainer, isCosmosAvailable, generateId } from '../lib/cosmos';
 import type { GroceryList, GroceryItem } from '@plateful/shared';
+import { findDuplicates, mergeIdenticalItems } from '@plateful/shared/src/utils/grocery-grouping';
 
 const app = new Hono();
 
@@ -574,8 +575,63 @@ app.post('/:userID/lists/:listID/items', async (c) => {
       throw error;
     }
 
+    // Get existing items in the list to check for duplicates
+    const { resources: existingItemsResources } = await itemsContainer.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.listID = @listID',
+        parameters: [{ name: '@listID', value: listID }],
+      })
+      .fetchAll();
+
+    const existingItems: GroceryItem[] = (existingItemsResources || []).map((doc: any) => ({
+      id: doc.id,
+      listID: doc.listID,
+      name: doc.name,
+      quantity: doc.quantity,
+      unit: doc.unit,
+      category: doc.category,
+      notes: doc.notes,
+      completed: doc.completed || false,
+      userID: doc.userID,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    }));
+
     const now = new Date().toISOString();
-    const groceryItems: GroceryItem[] = items.map(item => ({
+    
+    // Prepare new items in GroceryItem format (without id and timestamps)
+    const newItems = items.map(item => ({
+      name: item.name,
+      quantity: item.quantity || 1,
+      unit: item.unit || '',
+      category: item.category,
+      notes: item.notes || '',
+      completed: false,
+    }));
+
+    // Find duplicates using smart grouping
+    const { toMerge, toAdd } = findDuplicates(existingItems, newItems);
+
+    const createdItems: GroceryItem[] = [];
+    const updatedItems: GroceryItem[] = [];
+
+    // Merge duplicates: update existing items with combined quantities
+    for (const { existing, new: newItem } of toMerge) {
+      const updatedItem: GroceryItem = {
+        ...existing,
+        quantity: (existing.quantity || 0) + (newItem.quantity || 0),
+        notes: existing.notes && newItem.notes && existing.notes !== newItem.notes
+          ? `${existing.notes}; ${newItem.notes}`
+          : (newItem.notes || existing.notes || ''),
+        updatedAt: now,
+      };
+      
+      await itemsContainer.items.upsert(updatedItem);
+      updatedItems.push(updatedItem);
+    }
+
+    // Add new items (non-duplicates)
+    const groceryItems: GroceryItem[] = toAdd.map(item => ({
       id: generateId('grocery-item'),
       listID, // Required for Cosmos DB partitioning
       name: item.name,
@@ -589,8 +645,9 @@ app.post('/:userID/lists/:listID/items', async (c) => {
       updatedAt: now,
     }));
 
-    // Insert items
+    // Insert new items
     await Promise.all(groceryItems.map(item => itemsContainer.items.create(item)));
+    createdItems.push(...groceryItems);
 
     // Update list updatedAt - query again to get the list document
     const { resources: listResources } = await listsContainer.items
@@ -611,9 +668,14 @@ app.post('/:userID/lists/:listID/items', async (c) => {
       });
     }
 
+    const totalItemsAffected = createdItems.length + updatedItems.length;
+    const mergeMessage = toMerge.length > 0 ? ` Merged ${toMerge.length} duplicate(s).` : '';
+    
     return c.json({
-      items: groceryItems,
-      message: `Added ${groceryItems.length} item(s) successfully.`
+      items: [...createdItems, ...updatedItems],
+      created: createdItems.length,
+      merged: updatedItems.length,
+      message: `Added ${createdItems.length} item(s) successfully.${mergeMessage}`
     }, 201);
   } catch (error: any) {
     console.error('Error adding grocery items:', error);
@@ -918,7 +980,7 @@ app.post('/:userID/merge', async (c) => {
     }
 
     // Collect all items from source lists
-    const allItems: any[] = [];
+    const allItems: GroceryItem[] = [];
     for (const listID of listIDs) {
       const { resources } = await itemsContainer.items
         .query({
@@ -926,46 +988,31 @@ app.post('/:userID/merge', async (c) => {
           parameters: [{ name: '@listID', value: listID }],
         })
         .fetchAll();
-      allItems.push(...(resources || []));
+      
+      // Convert to GroceryItem format
+      const items: GroceryItem[] = (resources || []).map((doc: any) => ({
+        id: doc.id,
+        listID: doc.listID,
+        name: doc.name,
+        quantity: doc.quantity || 1,
+        unit: doc.unit || '',
+        category: doc.category,
+        notes: doc.notes || '',
+        completed: doc.completed || false,
+        userID: doc.userID,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+      }));
+      
+      allItems.push(...items);
     }
 
-    // Deduplicate and merge items with same name
-    const itemMap = new Map<string, any>();
-    
-    for (const item of allItems) {
-      const key = item.name.toLowerCase().trim();
-      const existing = itemMap.get(key);
-      
-      if (existing) {
-        // Merge quantities if units match, otherwise keep separate
-        if (existing.unit === item.unit && existing.unit !== '') {
-          existing.quantity = (existing.quantity || 0) + (item.quantity || 0);
-          // Merge notes
-          if (item.notes && existing.notes) {
-            existing.notes = `${existing.notes}; ${item.notes}`;
-          } else if (item.notes) {
-            existing.notes = item.notes;
-          }
-          // Keep completed status if either is completed
-          existing.completed = existing.completed || item.completed;
-        } else {
-          // Different units or no units - create separate item with suffix
-          const newItem = {
-            ...item,
-            name: `${item.name} (${item.unit || '1'})`,
-            id: generateId('grocery-item'),
-          };
-          itemMap.set(`${key}_${itemMap.size}`, newItem);
-        }
-      } else {
-        // New item, add to map
-        itemMap.set(key, { ...item });
-      }
-    }
+    // Use smart grouping to merge identical items
+    const mergedItemsData = mergeIdenticalItems(allItems);
 
     // Create merged items in target list
     const now = new Date().toISOString();
-    const mergedItems: GroceryItem[] = Array.from(itemMap.values()).map(item => ({
+    const mergedItems: GroceryItem[] = mergedItemsData.map(item => ({
       id: generateId('grocery-item'),
       listID: targetListIDFinal,
       name: item.name,

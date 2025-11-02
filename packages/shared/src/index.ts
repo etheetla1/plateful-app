@@ -17,3 +17,4 @@ export * from './utils/ingredient-parser';
 export * from './utils/pantry-matcher';
 export * from './utils/portion-scaling';
 export * from './utils/cooking-constraints';
+export * from './utils/grocery-grouping';

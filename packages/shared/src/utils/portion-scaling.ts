@@ -236,6 +236,12 @@ export function scaleIngredient(
   // Calculate scale factor
   const scaleFactor = calculateScaleFactor(originalPortions, targetPortions);
   
+  // Only scale if we have a valid parsed quantity
+  if (!parsed.quantity || isNaN(parsed.quantity) || parsed.quantity <= 0) {
+    // Can't scale invalid quantity, return original
+    return ingredient;
+  }
+  
   // Scale the quantity
   const scaledQuantity = parsed.quantity * scaleFactor;
 
@@ -248,8 +254,14 @@ export function scaleIngredient(
   // Reconstruct the ingredient string
   let result = '';
   
-  if (formattedQuantity && formattedQuantity !== '1' || parsed.unit) {
-    result = `${formattedQuantity}${parsed.unit ? ` ${parsed.unit}` : ''}`;
+  // Always include quantity if we have one (even if it's "1") or if there's a unit
+  if (formattedQuantity || parsed.unit) {
+    if (formattedQuantity) {
+      result = `${formattedQuantity}${parsed.unit ? ` ${parsed.unit}` : ''}`;
+    } else if (parsed.unit) {
+      // Unit without quantity - use "1" as default
+      result = `1 ${parsed.unit}`;
+    }
   }
   
   if (parsed.name) {

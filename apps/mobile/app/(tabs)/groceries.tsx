@@ -16,6 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors, semanticColors } from '@plateful/shared';
 import type { GroceryList, GroceryItem, PantryItem, PantryCategory, CommonIngredient } from '@plateful/shared';
 import { findPantryMatch, COMMON_INGREDIENTS, getIngredientsByCategory, CATEGORY_NAMES } from '@plateful/shared';
+import { groupGroceryItems, type GroupedGroceryItems } from '@plateful/shared/src/utils/grocery-grouping';
 import { ScrollView, TouchableWithoutFeedback } from 'react-native';
 import Header from '../../src/components/Header';
 import { auth } from '../../src/config/firebase';
@@ -314,6 +315,7 @@ export default function Groceries() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
   const [loadingCreate, setLoadingCreate] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
 
   useEffect(() => {
     if (auth.currentUser) {
@@ -611,13 +613,14 @@ export default function Groceries() {
     );
   };
 
-  const renderGroceryItem = ({ item }: { item: GroceryItem }) => {
+  const renderGroceryItem = (item: GroceryItem) => {
     const pantryMatch = findPantryMatch(item.name, pantryItems);
     const isFuzzyMatch = pantryMatch.matchType === 'fuzzy';
     const isExactMatch = pantryMatch.matchType === 'exact';
 
     return (
       <TouchableOpacity
+        key={item.id}
         style={[
           styles.listItem,
           isFuzzyMatch && styles.listItemFuzzyMatch,
@@ -633,9 +636,14 @@ export default function Groceries() {
           <Text style={[styles.itemText, item.completed && styles.itemTextChecked]}>
             {item.name}
           </Text>
-          {item.quantity > 1 && (
+          {item.quantity > 1 && item.unit && (
             <Text style={styles.itemQuantity}>
               {item.quantity} {item.unit}
+            </Text>
+          )}
+          {item.notes && (
+            <Text style={styles.itemNotes}>
+              {item.notes}
             </Text>
           )}
           {isFuzzyMatch && pantryMatch.item && (
@@ -646,6 +654,22 @@ export default function Groceries() {
         </View>
       </TouchableOpacity>
     );
+  };
+
+  const renderGroupedItems = (groupedItems: GroupedGroceryItems[]) => {
+    return groupedItems.map(categoryGroup => (
+      <View key={categoryGroup.category} style={styles.categorySection}>
+        <Text style={styles.categoryTitle}>
+          {categoryGroup.category === 'seasonings' ? 'Seasonings' : 
+           categoryGroup.category.charAt(0).toUpperCase() + categoryGroup.category.slice(1)}
+        </Text>
+        {categoryGroup.groups.map((similarGroup, groupIdx) => (
+          <View key={`${categoryGroup.category}-${groupIdx}`}>
+            {similarGroup.map(item => renderGroceryItem(item))}
+          </View>
+        ))}
+      </View>
+    ));
   };
 
   if (loading) {
@@ -661,20 +685,29 @@ export default function Groceries() {
   }
 
   if (viewMode === 'items' && selectedList) {
+    // Separate active and completed items
+    const activeItems = selectedList.items.filter(item => !item.completed);
+    const completedItems = selectedList.items.filter(item => item.completed);
+
+    // Group items using smart grouping
+    const groupedActiveItems = activeItems.length > 0 ? groupGroceryItems(activeItems) : [];
+    const groupedCompletedItems = completedItems.length > 0 ? groupGroceryItems(completedItems) : [];
+
     return (
       <View style={styles.container}>
-      <View style={styles.headerWithBack}>
-        <TouchableOpacity
-          onPress={() => {
-            setViewMode('lists');
-            setSelectedList(null);
-          }}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Header title={selectedList.name} />
-      </View>
+        <View style={styles.headerWithBack}>
+          <TouchableOpacity
+            onPress={() => {
+              setViewMode('lists');
+              setSelectedList(null);
+              setCompletedExpanded(false);
+            }}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Header title={selectedList.name} />
+        </View>
         {selectedList.items.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No items yet</Text>
@@ -683,13 +716,39 @@ export default function Groceries() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={selectedList.items}
-            renderItem={renderGroceryItem}
-            keyExtractor={(item) => item.id}
+          <ScrollView
+            style={styles.scrollContainer}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
-          />
+          >
+            {/* Active Items */}
+            {groupedActiveItems.length > 0 && renderGroupedItems(groupedActiveItems)}
+
+            {/* Completed Items Section */}
+            {completedItems.length > 0 && (
+              <View style={styles.completedSection}>
+                <TouchableOpacity
+                  style={styles.completedHeader}
+                  onPress={() => setCompletedExpanded(!completedExpanded)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.completedHeaderText}>
+                    Completed Items ({completedItems.length})
+                  </Text>
+                  <Ionicons
+                    name={completedExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+                {completedExpanded && (
+                  <View style={styles.completedContent}>
+                    {renderGroupedItems(groupedCompletedItems)}
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
         )}
       </View>
     );
@@ -1058,11 +1117,53 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  itemNotes: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   fuzzyMatchHint: {
     fontSize: 11,
     color: colors.accent,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  categorySection: {
+    marginBottom: 24,
+  },
+  categoryTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  completedSection: {
+    marginTop: 24,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+    paddingTop: 16,
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 12,
+  },
+  completedHeaderText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  completedContent: {
+    paddingTop: 8,
   },
   emptyContainer: {
     flex: 1,
