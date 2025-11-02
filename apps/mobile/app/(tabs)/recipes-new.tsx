@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { Recipe, GroceryList, PantryItem, FoodProfile, ScalingWarning } from '@plateful/shared';
+import type { Recipe, GroceryList, PantryItem, FoodProfile, ScalingWarning, MealTracking } from '@plateful/shared';
 import { colors, semanticColors, parseIngredients, findPantryMatch, extractPortionNumber, scaleIngredient, scaleNutrition, detectCookingConstraints, checkScalingConstraints } from '@plateful/shared';
 import { auth } from '../../src/config/firebase';
 import Header from '../../src/components/Header';
@@ -531,6 +531,331 @@ function EditedBannerInline() {
   );
 }
 
+// Track Meal Modal Component
+interface TrackMealModalProps {
+  visible: boolean;
+  recipe: Recipe | null;
+  currentPortionSize: number | null;
+  userProfile: FoodProfile | null;
+  onClose: () => void;
+  onTrack: (portions: number, date: string, dateQuickSelect: 'today' | 'yesterday' | 'custom') => Promise<void>;
+  isTracking: boolean;
+  trackingPortions: number;
+  setTrackingPortions: (portions: number) => void;
+  trackingDateQuickSelect: 'today' | 'yesterday' | 'custom';
+  setTrackingDateQuickSelect: (select: 'today' | 'yesterday' | 'custom') => void;
+  selectedTrackingDate: string;
+  setSelectedTrackingDate: (date: string) => void;
+}
+
+function TrackMealModal({
+  visible,
+  recipe,
+  currentPortionSize,
+  userProfile,
+  onClose,
+  onTrack,
+  isTracking,
+  trackingPortions,
+  setTrackingPortions,
+  trackingDateQuickSelect,
+  setTrackingDateQuickSelect,
+  selectedTrackingDate,
+  setSelectedTrackingDate,
+}: TrackMealModalProps) {
+  // API endpoint - platform aware
+  const API_BASE = Platform.select({
+    web: 'http://localhost:3001',
+    android: 'http://10.0.2.2:3001',
+    ios: 'http://localhost:3001',
+    default: 'http://localhost:3001',
+  });
+
+  // Date utility functions
+  const getDateStringInTimezone = (date: Date, timezone: string): string => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  };
+
+  const getTodayInTimezone = (timezone: string): Date => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+    return new Date(year, month, day, 0, 0, 0, 0);
+  };
+
+  // Initialize tracking state when modal opens
+  useEffect(() => {
+    if (visible && recipe && currentPortionSize !== null) {
+      setTrackingPortions(currentPortionSize);
+      setTrackingDateQuickSelect('today');
+      setSelectedTrackingDate('');
+    }
+  }, [visible, recipe, currentPortionSize]);
+
+  // Calculate nutrition preview
+  const calculateNutritionPreview = () => {
+    if (!recipe?.recipeData.nutrition || trackingPortions <= 0) {
+      return null;
+    }
+
+    const originalPortions = extractPortionNumber(recipe.recipeData.portions);
+    const scaleFactor = trackingPortions / originalPortions;
+    const scaledNutrition = scaleFactor !== 1
+      ? scaleNutrition(recipe.recipeData.nutrition, scaleFactor)
+      : recipe.recipeData.nutrition;
+
+    const parseNutritionValue = (value: string): number => {
+      if (!value) return 0;
+      const match = value.match(/(\d+(?:\.\d+)?)/);
+      return match ? parseFloat(match[1]) : 0;
+    };
+
+    const cleanedCalories = scaledNutrition.calories_per_portion?.replace(/\s*\(estimated by AI\)/gi, '').trim() || '';
+    const calories = parseNutritionValue(cleanedCalories) * trackingPortions;
+    const protein = parseNutritionValue(scaledNutrition.protein || '') * trackingPortions;
+    const carbs = parseNutritionValue(scaledNutrition.carbs || '') * trackingPortions;
+    const fat = parseNutritionValue(scaledNutrition.fat || '') * trackingPortions;
+
+    return { calories, protein, carbs, fat };
+  };
+
+  const nutritionPreview = calculateNutritionPreview();
+
+  const handleTrackMeal = async () => {
+    await onTrack(trackingPortions, selectedTrackingDate, trackingDateQuickSelect);
+  };
+
+  const handlePortionChange = (delta: number) => {
+    const newPortions = Math.max(0.25, Math.min(10, trackingPortions + delta));
+    setTrackingPortions(newPortions);
+  };
+
+  const userTimezone = userProfile?.timezone || 'America/New_York';
+
+  if (!recipe) return null;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={addGroceryStyles.modalBackdrop}>
+        <View style={addGroceryStyles.modalContent}>
+          <View style={addGroceryStyles.modalHeader}>
+            <Text style={addGroceryStyles.modalTitle}>Track Meal</Text>
+            <TouchableOpacity onPress={onClose} disabled={isTracking}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={addGroceryStyles.recipeTitle}>{recipe.recipeData.title}</Text>
+
+          {/* Date Selector */}
+          <Text style={addGroceryStyles.sectionTitle}>Select Date</Text>
+          <View style={styles.dateQuickButtons}>
+            <TouchableOpacity
+              style={[
+                styles.dateQuickButton,
+                trackingDateQuickSelect === 'today' && styles.dateQuickButtonActive,
+              ]}
+              onPress={() => {
+                setTrackingDateQuickSelect('today');
+                setSelectedTrackingDate('');
+              }}
+              disabled={isTracking}
+            >
+              <Text
+                style={[
+                  styles.dateQuickButtonText,
+                  trackingDateQuickSelect === 'today' && styles.dateQuickButtonTextActive,
+                ]}
+              >
+                Today
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.dateQuickButton,
+                trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonActive,
+              ]}
+              onPress={() => {
+                setTrackingDateQuickSelect('yesterday');
+                setSelectedTrackingDate('');
+              }}
+              disabled={isTracking}
+            >
+              <Text
+                style={[
+                  styles.dateQuickButtonText,
+                  trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonTextActive,
+                ]}
+              >
+                Yesterday
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.dateQuickButton,
+                trackingDateQuickSelect === 'custom' && styles.dateQuickButtonActive,
+              ]}
+              onPress={() => {
+                setTrackingDateQuickSelect('custom');
+              }}
+              disabled={isTracking}
+            >
+              <Text
+                style={[
+                  styles.dateQuickButtonText,
+                  trackingDateQuickSelect === 'custom' && styles.dateQuickButtonTextActive,
+                ]}
+              >
+                Custom
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {trackingDateQuickSelect === 'custom' && (
+            <TextInput
+              style={styles.dateInput}
+              placeholder="YYYY-MM-DD"
+              value={selectedTrackingDate}
+              onChangeText={setSelectedTrackingDate}
+              editable={!isTracking}
+              placeholderTextColor={colors.textSecondary}
+            />
+          )}
+
+          {/* Portion Selector */}
+          <Text style={addGroceryStyles.sectionTitle}>Portions</Text>
+          <View style={styles.portionInputContainer}>
+            <TouchableOpacity
+              style={styles.portionButton}
+              onPress={() => handlePortionChange(-0.25)}
+              disabled={isTracking || trackingPortions <= 0.25}
+            >
+              <Ionicons
+                name="remove-circle-outline"
+                size={32}
+                color={trackingPortions <= 0.25 ? colors.textSecondary : colors.primary}
+              />
+            </TouchableOpacity>
+            <View style={styles.portionInputWrapper}>
+              <TextInput
+                style={styles.portionInput}
+                value={trackingPortions.toString()}
+                onChangeText={(text) => {
+                  const num = parseFloat(text) || 0;
+                  if (num >= 0 && num <= 10) {
+                    setTrackingPortions(num);
+                  }
+                }}
+                keyboardType="decimal-pad"
+                editable={!isTracking}
+                selectTextOnFocus
+              />
+              <Text style={styles.portionLabel}>portions</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.portionButton}
+              onPress={() => handlePortionChange(0.25)}
+              disabled={isTracking || trackingPortions >= 10}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={32}
+                color={trackingPortions >= 10 ? colors.textSecondary : colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Nutrition Preview */}
+          {nutritionPreview && (
+            <>
+              <Text style={addGroceryStyles.sectionTitle}>Nutrition Preview</Text>
+              <View style={styles.trackingNutrition}>
+                <View style={styles.nutritionItemRow}>
+                  <Text style={styles.nutritionItemLabel}>Calories</Text>
+                  <Text style={styles.nutritionItemValue}>
+                    {Math.round(nutritionPreview.calories)} kcal
+                  </Text>
+                </View>
+                <View style={styles.nutritionItemRow}>
+                  <Text style={styles.nutritionItemLabel}>Protein</Text>
+                  <Text style={styles.nutritionItemValue}>
+                    {Math.round(nutritionPreview.protein)}g
+                  </Text>
+                </View>
+                <View style={styles.nutritionItemRow}>
+                  <Text style={styles.nutritionItemLabel}>Carbs</Text>
+                  <Text style={styles.nutritionItemValue}>
+                    {Math.round(nutritionPreview.carbs)}g
+                  </Text>
+                </View>
+                <View style={[styles.nutritionItemRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.nutritionItemLabel}>Fat</Text>
+                  <Text style={styles.nutritionItemValue}>
+                    {Math.round(nutritionPreview.fat)}g
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Action Buttons */}
+          <View style={addGroceryStyles.actionButtons}>
+            <TouchableOpacity
+              style={addGroceryStyles.cancelActionButton}
+              onPress={onClose}
+              disabled={isTracking}
+            >
+              <Text style={addGroceryStyles.cancelActionButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                addGroceryStyles.addButton,
+                (trackingPortions <= 0 || isTracking) && addGroceryStyles.addButtonDisabled,
+              ]}
+              onPress={handleTrackMeal}
+              disabled={trackingPortions <= 0 || isTracking}
+            >
+              {isTracking ? (
+                <ActivityIndicator size="small" color={colors.surface} />
+              ) : (
+                <Text style={addGroceryStyles.addButtonText}>Track Meal</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // Edited Banner Component with Sparkle Animation
 function EditedBanner() {
   const sparkle1 = useRef(new Animated.Value(0)).current;
@@ -637,6 +962,15 @@ export default function RecipesScreen() {
   const [showWarningsModal, setShowWarningsModal] = useState(false);
   const [currentWarnings, setCurrentWarnings] = useState<ScalingWarning[]>([]);
   const warningsShownRef = useRef<string | null>(null);
+  // Meal tracking state
+  const [trackedMeals, setTrackedMeals] = useState<MealTracking[]>([]);
+  const [showTrackMealModal, setShowTrackMealModal] = useState(false);
+  const [selectedTrackingDate, setSelectedTrackingDate] = useState<string>('');
+  const [trackingPortions, setTrackingPortions] = useState<number>(1);
+  const [trackingDateQuickSelect, setTrackingDateQuickSelect] = useState<'today' | 'yesterday' | 'custom'>('today');
+  const [isTrackingMeal, setIsTrackingMeal] = useState(false);
+  const [isLoadingTrackedMeals, setIsLoadingTrackedMeals] = useState(false);
+  const [mealLogExpanded, setMealLogExpanded] = useState(false);
   
 
   // Enable LayoutAnimation on Android
@@ -654,6 +988,40 @@ export default function RecipesScreen() {
     }
   }, [recipeFilter]);
 
+  // Date utility functions (similar to home page)
+  const getDateStringInTimezone = (date: Date, timezone: string): string => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = formatter.formatToParts(date);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
+    return `${year}-${month}-${day}`;
+  };
+
+  const getTodayInTimezone = (timezone: string): Date => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+    return new Date(year, month, day, 0, 0, 0, 0);
+  };
+
   useEffect(() => {
     if (selectedRecipe) {
       // Calculate initial portion size: userPortionSize || defaultServingSize || originalPortions
@@ -669,17 +1037,31 @@ export default function RecipesScreen() {
         warningsShownRef.current = null; // Reset for new recipe
         setShowWarningsModal(false);
       }
-      
-      // Check if meal is already tracked (load history for last 7 days)
-      
-      // Don't auto-show on initial load - let user trigger it by adjusting portions
     } else {
       setCurrentPortionSize(null);
       setShowWarningsModal(false);
       setCurrentWarnings([]);
       warningsShownRef.current = null;
+      setTrackedMeals([]);
     }
   }, [selectedRecipe?.recipeID, userProfile?.defaultServingSize]); // Trigger when recipeID changes or profile loads
+
+  // Load tracked meals when recipe and profile are ready
+  useEffect(() => {
+    if (selectedRecipe && userProfile) {
+      // Auto-expand meal log if there are meals
+      loadTrackedMeals().then(() => {
+        // This will be updated when trackedMeals state changes
+      });
+    }
+  }, [selectedRecipe?.recipeID, userProfile, loadTrackedMeals]);
+
+  // Auto-expand meal log when meals are loaded
+  useEffect(() => {
+    if (trackedMeals.length > 0 && !mealLogExpanded) {
+      setMealLogExpanded(true);
+    }
+  }, [trackedMeals.length]);
 
 
   const loadRecipes = async () => {
@@ -724,6 +1106,194 @@ export default function RecipesScreen() {
       console.error('Failed to load user profile:', error);
       setUserProfile(null);
     }
+  };
+
+  // Load tracked meals for the selected recipe (last 30 days to catch any meals)
+  const loadTrackedMeals = useCallback(async () => {
+    if (!auth.currentUser || !selectedRecipe || !userProfile) return;
+
+    setIsLoadingTrackedMeals(true);
+    try {
+      const userTimezone = userProfile.timezone || 'America/New_York';
+      const today = getTodayInTimezone(userTimezone);
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 90); // Last 90 days to catch all meals (including any with wrong dates)
+      
+      // Also extend end date to future to catch any meals with future dates
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 7); // Include next 7 days in case of timezone issues
+      
+      const startDateStr = getDateStringInTimezone(startDate, userTimezone);
+      const endDateStr = getDateStringInTimezone(endDate, userTimezone);
+      
+      // Log the actual date calculations for debugging
+      console.log(`[loadTrackedMeals] Date calculations:`, {
+        todayInTimezone: getDateStringInTimezone(today, userTimezone),
+        startDateStr,
+        endDateStr,
+        userTimezone,
+      });
+
+      console.log(`[loadTrackedMeals] Loading meals for recipe ${selectedRecipe.recipeID}, date range: ${startDateStr} to ${endDateStr}`);
+
+      const response = await fetch(
+        `${API_BASE}/api/meal-tracking/user/${auth.currentUser.uid}/range?startDate=${startDateStr}&endDate=${endDateStr}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const dailyData = data.dailyData || {};
+        
+        console.log(`[loadTrackedMeals] Received dailyData:`, Object.keys(dailyData));
+        
+        // Collect all meals and filter by recipeID
+        const allMeals: MealTracking[] = [];
+        Object.values(dailyData).forEach((dayData: any) => {
+          if (dayData.meals) {
+            dayData.meals.forEach((meal: MealTracking) => {
+              console.log(`[loadTrackedMeals] Checking meal: recipeID=${meal.recipeID}, selectedRecipe=${selectedRecipe.recipeID}, match=${meal.recipeID === selectedRecipe.recipeID}`);
+              if (meal.recipeID === selectedRecipe.recipeID) {
+                allMeals.push(meal);
+              }
+            });
+          }
+        });
+
+        console.log(`[loadTrackedMeals] Found ${allMeals.length} meals for recipe ${selectedRecipe.recipeID}`);
+
+        // Sort by date (newest first)
+        allMeals.sort((a, b) => {
+          const dateA = new Date(a.date + 'T' + a.createdAt.split('T')[1] || '00:00:00');
+          const dateB = new Date(b.date + 'T' + b.createdAt.split('T')[1] || '00:00:00');
+          return dateB.getTime() - dateA.getTime();
+        });
+
+        setTrackedMeals(allMeals);
+      } else {
+        const errorText = await response.text();
+        console.error(`[loadTrackedMeals] Failed to load meals: ${response.status} ${errorText}`);
+        setTrackedMeals([]);
+      }
+    } catch (error) {
+      console.error('[loadTrackedMeals] Error loading tracked meals:', error);
+      setTrackedMeals([]);
+    } finally {
+      setIsLoadingTrackedMeals(false);
+    }
+  }, [selectedRecipe?.recipeID, userProfile]);
+
+  // Track a meal
+  const trackMeal = async () => {
+    if (!auth.currentUser || !selectedRecipe || !userProfile || trackingPortions <= 0) {
+      Alert.alert('Error', 'Please enter a valid portion size');
+      return;
+    }
+
+    setIsTrackingMeal(true);
+    try {
+      const userTimezone = userProfile.timezone || 'America/New_York';
+      let dateToUse = selectedTrackingDate;
+
+      // Determine date based on quick select
+      if (trackingDateQuickSelect === 'today') {
+        const today = getTodayInTimezone(userTimezone);
+        dateToUse = getDateStringInTimezone(today, userTimezone);
+      } else if (trackingDateQuickSelect === 'yesterday') {
+        const today = getTodayInTimezone(userTimezone);
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        dateToUse = getDateStringInTimezone(yesterday, userTimezone);
+      } else if (trackingDateQuickSelect === 'custom') {
+        if (!dateToUse || !/^\d{4}-\d{2}-\d{2}$/.test(dateToUse)) {
+          Alert.alert('Error', 'Please enter a valid date (YYYY-MM-DD)');
+          setIsTrackingMeal(false);
+          return;
+        }
+      }
+
+      console.log('[trackMeal] Tracking meal:', {
+        userID: auth.currentUser.uid,
+        recipeID: selectedRecipe.recipeID,
+        portions: trackingPortions,
+        date: dateToUse,
+        dateQuickSelect: trackingDateQuickSelect,
+      });
+
+      const response = await fetch(`${API_BASE}/api/meal-tracking`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userID: auth.currentUser.uid,
+          recipeID: selectedRecipe.recipeID,
+          portions: trackingPortions,
+          date: dateToUse,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to track meal');
+      }
+
+      const result = await response.json();
+      console.log('[trackMeal] Meal tracked successfully:', result.meal);
+      
+      Alert.alert('Success', 'Meal tracked successfully!');
+      setShowTrackMealModal(false);
+      // Reset tracking state
+      setTrackingPortions(currentPortionSize || 1);
+      setTrackingDateQuickSelect('today');
+      setSelectedTrackingDate('');
+      
+      // Reload tracked meals with a small delay to ensure Cosmos has the data
+      setTimeout(async () => {
+        console.log('[trackMeal] Reloading tracked meals after tracking...');
+        await loadTrackedMeals();
+      }, 500);
+    } catch (error: any) {
+      console.error('Failed to track meal:', error);
+      Alert.alert('Error', error.message || 'Failed to track meal. Please try again.');
+    } finally {
+      setIsTrackingMeal(false);
+    }
+  };
+
+  // Delete a tracked meal
+  const deleteTrackedMeal = async (mealID: string) => {
+    if (!auth.currentUser) return;
+
+    Alert.alert(
+      'Delete Meal',
+      'Are you sure you want to remove this tracked meal?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!auth.currentUser) return;
+            try {
+              const response = await fetch(
+                `${API_BASE}/api/meal-tracking/${mealID}?userID=${auth.currentUser.uid}`,
+                {
+                  method: 'DELETE',
+                }
+              );
+
+              if (!response.ok) {
+                throw new Error('Failed to delete meal');
+              }
+
+              // Reload tracked meals
+              await loadTrackedMeals();
+            } catch (error) {
+              console.error('Failed to delete meal:', error);
+              Alert.alert('Error', 'Failed to delete meal. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handlePortionSizeChange = async (newPortions: number) => {
@@ -1174,20 +1744,105 @@ export default function RecipesScreen() {
             </View>
 
             {/* Add Meal Button */}
-            <TouchableOpacity style={styles.trackMealAddButton}>
+            <TouchableOpacity
+              style={styles.trackMealAddButton}
+              onPress={() => setShowTrackMealModal(true)}
+              disabled={!selectedRecipe?.recipeData.nutrition}
+            >
               <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
               <Text style={styles.trackMealAddButtonText}>Add Meal</Text>
             </TouchableOpacity>
 
             {/* Meal Log Section */}
-            <View style={styles.trackMealLogSection}>
-              <Text style={styles.trackMealLogHeader}>Meal Log ▼</Text>
-              <View style={styles.trackMealEmptyState}>
-                <Ionicons name="document-text-outline" size={44} color={colors.textSecondary} />
-                <Text style={styles.trackMealEmptyText}>No meals tracked yet</Text>
-                <Text style={styles.trackMealEmptyHint}>Tap 'Add Meal' to get started</Text>
+            {trackedMeals.length > 0 && (
+              <View style={styles.trackMealLogSection}>
+                <View style={styles.trackMealLogHeaderRow}>
+                  <TouchableOpacity
+                    onPress={() => setMealLogExpanded(!mealLogExpanded)}
+                    style={styles.trackMealLogHeaderButton}
+                  >
+                    <Text style={styles.trackMealLogHeader}>
+                      Meal Log {mealLogExpanded ? '▼' : '▶'} ({trackedMeals.length})
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={loadTrackedMeals}
+                    style={styles.refreshButton}
+                    disabled={isLoadingTrackedMeals}
+                  >
+                    <Ionicons 
+                      name="refresh" 
+                      size={18} 
+                      color={isLoadingTrackedMeals ? colors.textSecondary : colors.primary} 
+                    />
+                  </TouchableOpacity>
+                </View>
+                {mealLogExpanded && (
+                  <View style={styles.mealsListContainer}>
+                    {isLoadingTrackedMeals ? (
+                      <View style={styles.trackMealEmptyState}>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={styles.trackMealEmptyText}>Loading meals...</Text>
+                      </View>
+                    ) : (
+                      trackedMeals.map((meal) => {
+                        const mealDate = new Date(meal.date + 'T00:00:00');
+                        const formattedDate = mealDate.toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: mealDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+                        });
+
+                        return (
+                          <View key={meal.id} style={styles.mealCard}>
+                            <View style={styles.mealCardHeader}>
+                              <View style={styles.mealCardHeaderLeft}>
+                                <View style={styles.mealCardIconCircle}>
+                                  <Ionicons name="restaurant" size={20} color={colors.surface} />
+                                </View>
+                                <View style={styles.mealCardHeaderText}>
+                                  <Text style={styles.mealCardDate}>{formattedDate}</Text>
+                                  <View style={styles.mealCardBadge}>
+                                    <Text style={styles.mealCardBadgeText}>
+                                      {meal.portions} {meal.portions === 1 ? 'portion' : 'portions'}
+                                    </Text>
+                                  </View>
+                                </View>
+                              </View>
+                              <TouchableOpacity
+                                onPress={() => deleteTrackedMeal(meal.id)}
+                                style={styles.mealCardDeleteButton}
+                              >
+                                <Ionicons name="trash-outline" size={20} color={semanticColors.error} />
+                              </TouchableOpacity>
+                            </View>
+                            <View style={styles.mealCardContent}>
+                              <Text style={styles.mealCardNutrition}>
+                                {Math.round(meal.nutrition.calories)} kcal •{' '}
+                                {Math.round(meal.nutrition.protein)}g protein •{' '}
+                                {Math.round(meal.nutrition.carbs)}g carbs •{' '}
+                                {Math.round(meal.nutrition.fat)}g fat
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })
+                    )}
+                  </View>
+                )}
               </View>
-            </View>
+            )}
+
+            {trackedMeals.length === 0 && !isLoadingTrackedMeals && (
+              <View style={styles.trackMealLogSection}>
+                <Text style={styles.trackMealLogHeader}>Meal Log</Text>
+                <View style={styles.trackMealEmptyState}>
+                  <Ionicons name="document-text-outline" size={44} color={colors.textSecondary} />
+                  <Text style={styles.trackMealEmptyText}>No meals tracked yet</Text>
+                  <Text style={styles.trackMealEmptyHint}>Tap 'Add Meal' to get started</Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1204,6 +1859,27 @@ export default function RecipesScreen() {
           visible={showWarningsModal}
           warnings={currentWarnings}
           onClose={() => setShowWarningsModal(false)}
+        />
+
+        <TrackMealModal
+          visible={showTrackMealModal}
+          recipe={selectedRecipe}
+          currentPortionSize={currentPortionSize}
+          userProfile={userProfile}
+          onClose={() => setShowTrackMealModal(false)}
+          onTrack={async (portions, date, dateQuickSelect) => {
+            setTrackingPortions(portions);
+            setSelectedTrackingDate(date);
+            setTrackingDateQuickSelect(dateQuickSelect);
+            await trackMeal();
+          }}
+          isTracking={isTrackingMeal}
+          trackingPortions={trackingPortions}
+          setTrackingPortions={setTrackingPortions}
+          trackingDateQuickSelect={trackingDateQuickSelect}
+          setTrackingDateQuickSelect={setTrackingDateQuickSelect}
+          selectedTrackingDate={selectedTrackingDate}
+          setSelectedTrackingDate={setSelectedTrackingDate}
         />
       </ScrollView>
     );
@@ -1930,6 +2606,90 @@ const styles = StyleSheet.create({
   trackMealEmptyHint: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  trackMealLogHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  trackMealLogHeaderButton: {
+    flex: 1,
+  },
+  refreshButton: {
+    padding: 4,
+  },
+  mealsListContainer: {
+    marginTop: 12,
+    gap: 12,
+  },
+  mealCard: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  mealCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  mealCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  mealCardIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealCardHeaderText: {
+    flex: 1,
+    gap: 4,
+  },
+  mealCardDate: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  mealCardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mealCardBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  mealCardDeleteButton: {
+    padding: 4,
+  },
+  mealCardContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 4,
+    paddingTop: 12,
+  },
+  mealCardNutrition: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });
 

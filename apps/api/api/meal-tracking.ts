@@ -125,10 +125,20 @@ app.post('/', async (c) => {
 
     await mealContainer.items.upsert(meal);
 
+    console.log(`✅ Meal tracked: ${meal.id} for user ${userID}, recipe ${recipeID}, date ${mealDate}`);
     return c.json({ meal }, existingMeals.length > 0 ? 200 : 201);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error tracking meal:', error);
-    return c.json({ error: 'Failed to track meal' }, 500);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      statusCode: error.statusCode,
+      body: error.body,
+    });
+    return c.json({ 
+      error: 'Failed to track meal',
+      details: error.message || 'Unknown error'
+    }, 500);
   }
 });
 
@@ -165,6 +175,7 @@ app.delete('/:mealID', async (c) => {
       }
 
       await mealContainer.item(mealID, userID).delete();
+      console.log(`✅ Meal deleted: ${mealID} for user ${userID}`);
       return c.json({ success: true });
     } catch (error: any) {
       if (error?.code === 404) {
@@ -214,13 +225,18 @@ app.get('/user/:userID', async (c) => {
 
     const { resources: meals } = await mealContainer.items
       .query({
-        query: 'SELECT * FROM c WHERE c.userID = @userID AND c.date = @date ORDER BY c.createdAt ASC',
+        query: 'SELECT * FROM c WHERE c.userID = @userID AND c.date = @date',
         parameters: [
           { name: '@userID', value: userID },
           { name: '@date', value: date },
         ],
       })
       .fetchAll();
+    
+    // Sort by createdAt in application code (avoiding composite index requirement)
+    (meals as MealTracking[]).sort((a, b) => {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
 
     // Aggregate totals
     const totals: DailyNutritionTotals = meals.reduce(
@@ -270,10 +286,12 @@ app.get('/user/:userID/range', async (c) => {
       return c.json({ error: 'Database not available' }, 503);
     }
 
-    // Query all meals in date range
+    // Query all meals in date range (using >= and <= for string comparison works for YYYY-MM-DD format)
+    // Note: Removed ORDER BY to avoid composite index requirement - we'll sort in application code
+    console.log(`[meal-tracking] Querying meals for user ${userID}, date range: ${startDate} to ${endDate}`);
     const { resources: meals } = await mealContainer.items
       .query({
-        query: 'SELECT * FROM c WHERE c.userID = @userID AND c.date >= @startDate AND c.date <= @endDate ORDER BY c.date ASC, c.createdAt ASC',
+        query: 'SELECT * FROM c WHERE c.userID = @userID AND c.date >= @startDate AND c.date <= @endDate',
         parameters: [
           { name: '@userID', value: userID },
           { name: '@startDate', value: startDate },
@@ -281,6 +299,18 @@ app.get('/user/:userID/range', async (c) => {
         ],
       })
       .fetchAll();
+    
+    console.log(`[meal-tracking] Found ${meals.length} meals in date range`);
+    
+    // Sort meals by date and createdAt in application code
+    (meals as MealTracking[]).sort((a, b) => {
+      // First sort by date (YYYY-MM-DD format)
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      // Then by createdAt if dates are the same
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
 
     // Group by date and aggregate
     const dailyData: Record<string, { meals: MealTracking[]; totals: DailyNutritionTotals }> = {};
