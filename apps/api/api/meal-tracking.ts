@@ -329,6 +329,12 @@ app.get('/user/:userID/range', async (c) => {
       dailyData[meal.date].totals.fat += meal.nutrition.fat;
     });
 
+    // Log aggregation for debugging
+    console.log(`[meal-tracking] Aggregated ${meals.length} meals into ${Object.keys(dailyData).length} days`);
+    Object.entries(dailyData).forEach(([date, data]) => {
+      console.log(`[meal-tracking] ${date}: ${data.meals.length} meals, totals:`, data.totals);
+    });
+
     return c.json({
       dailyData,
       startDate,

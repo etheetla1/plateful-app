@@ -396,6 +396,21 @@ export default function Dashboard() {
         const data = await response.json();
         const dailyData = data.dailyData || {};
 
+        // Log for debugging
+        console.log('[loadWeeklyNutrition] Received dailyData:', Object.keys(dailyData));
+        Object.entries(dailyData).forEach(([date, dayData]: [string, any]) => {
+          console.log(`[loadWeeklyNutrition] ${date}:`, {
+            mealCount: dayData.meals?.length || 0,
+            totals: dayData.totals,
+            meals: dayData.meals?.map((m: any) => ({
+              id: m.id,
+              recipeID: m.recipeID,
+              portions: m.portions,
+              calories: m.nutrition?.calories,
+            })) || [],
+          });
+        });
+
         // Generate last 7 days with nutrition data
         const days: { date: string; totals: DailyNutritionTotals; dayName: string }[] = [];
         for (let i = 6; i >= 0; i--) {
@@ -451,6 +466,7 @@ export default function Dashboard() {
   // Update display name, timezone, and streak when screen comes into focus (e.g., after updating in profile)
   useFocusEffect(
     useCallback(() => {
+      console.log('[Dashboard] Screen focused, refreshing data...');
       // Load profile first (which sets timezone), then load streak data and nutrition
       loadProfile().then(() => {
         loadStreakData();

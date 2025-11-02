@@ -607,12 +607,12 @@ function TrackMealModal({
 
   // Initialize tracking state when modal opens
   useEffect(() => {
-    if (visible && recipe && currentPortionSize !== null) {
-      setTrackingPortions(currentPortionSize);
+    if (visible && recipe) {
+      setTrackingPortions(1); // Default to 1 portion
       setTrackingDateQuickSelect('today');
       setSelectedTrackingDate('');
     }
-  }, [visible, recipe, currentPortionSize]);
+  }, [visible, recipe]);
 
   // Calculate nutrition preview
   const calculateNutritionPreview = () => {
@@ -648,7 +648,7 @@ function TrackMealModal({
   };
 
   const handlePortionChange = (delta: number) => {
-    const newPortions = Math.max(0.25, Math.min(10, trackingPortions + delta));
+    const newPortions = Math.max(0.5, Math.min(10, trackingPortions + delta));
     setTrackingPortions(newPortions);
   };
 
@@ -673,158 +673,180 @@ function TrackMealModal({
             </TouchableOpacity>
           </View>
 
-          <Text style={addGroceryStyles.recipeTitle}>{recipe.recipeData.title}</Text>
+          <ScrollView 
+            style={styles.trackMealScrollView}
+            contentContainerStyle={styles.trackMealScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+          >
+            <Text style={addGroceryStyles.recipeTitle}>{recipe.recipeData.title}</Text>
 
-          {/* Date Selector */}
-          <Text style={addGroceryStyles.sectionTitle}>Select Date</Text>
-          <View style={styles.dateQuickButtons}>
-            <TouchableOpacity
-              style={[
-                styles.dateQuickButton,
-                trackingDateQuickSelect === 'today' && styles.dateQuickButtonActive,
-              ]}
-              onPress={() => {
-                setTrackingDateQuickSelect('today');
-                setSelectedTrackingDate('');
-              }}
-              disabled={isTracking}
-            >
-              <Text
-                style={[
-                  styles.dateQuickButtonText,
-                  trackingDateQuickSelect === 'today' && styles.dateQuickButtonTextActive,
-                ]}
-              >
-                Today
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.dateQuickButton,
-                trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonActive,
-              ]}
-              onPress={() => {
-                setTrackingDateQuickSelect('yesterday');
-                setSelectedTrackingDate('');
-              }}
-              disabled={isTracking}
-            >
-              <Text
-                style={[
-                  styles.dateQuickButtonText,
-                  trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonTextActive,
-                ]}
-              >
-                Yesterday
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.dateQuickButton,
-                trackingDateQuickSelect === 'custom' && styles.dateQuickButtonActive,
-              ]}
-              onPress={() => {
-                setTrackingDateQuickSelect('custom');
-              }}
-              disabled={isTracking}
-            >
-              <Text
-                style={[
-                  styles.dateQuickButtonText,
-                  trackingDateQuickSelect === 'custom' && styles.dateQuickButtonTextActive,
-                ]}
-              >
-                Custom
-              </Text>
-            </TouchableOpacity>
-          </View>
+            {/* Date Selector - In a card */}
+            <View style={styles.trackMealSection}>
+              <Text style={styles.trackMealSectionTitle}>Select Date</Text>
+              <View style={styles.dateQuickButtons}>
+                <TouchableOpacity
+                  style={[
+                    styles.dateQuickButton,
+                    trackingDateQuickSelect === 'today' && styles.dateQuickButtonActive,
+                  ]}
+                  onPress={() => {
+                    setTrackingDateQuickSelect('today');
+                    setSelectedTrackingDate('');
+                  }}
+                  disabled={isTracking}
+                >
+                  {trackingDateQuickSelect === 'today' && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.surface} style={styles.dateButtonIcon} />
+                  )}
+                  <Text
+                    style={[
+                      styles.dateQuickButtonText,
+                      trackingDateQuickSelect === 'today' && styles.dateQuickButtonTextActive,
+                    ]}
+                  >
+                    Today
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.dateQuickButton,
+                    trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonActive,
+                  ]}
+                  onPress={() => {
+                    setTrackingDateQuickSelect('yesterday');
+                    setSelectedTrackingDate('');
+                  }}
+                  disabled={isTracking}
+                >
+                  {trackingDateQuickSelect === 'yesterday' && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.surface} style={styles.dateButtonIcon} />
+                  )}
+                  <Text
+                    style={[
+                      styles.dateQuickButtonText,
+                      trackingDateQuickSelect === 'yesterday' && styles.dateQuickButtonTextActive,
+                    ]}
+                  >
+                    Yesterday
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.dateQuickButton,
+                    trackingDateQuickSelect === 'custom' && styles.dateQuickButtonActive,
+                  ]}
+                  onPress={() => {
+                    setTrackingDateQuickSelect('custom');
+                  }}
+                  disabled={isTracking}
+                >
+                  {trackingDateQuickSelect === 'custom' && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.surface} style={styles.dateButtonIcon} />
+                  )}
+                  <Text
+                    style={[
+                      styles.dateQuickButtonText,
+                      trackingDateQuickSelect === 'custom' && styles.dateQuickButtonTextActive,
+                    ]}
+                  >
+                    Custom
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-          {trackingDateQuickSelect === 'custom' && (
-            <TextInput
-              style={styles.dateInput}
-              placeholder="YYYY-MM-DD"
-              value={selectedTrackingDate}
-              onChangeText={setSelectedTrackingDate}
-              editable={!isTracking}
-              placeholderTextColor={colors.textSecondary}
-            />
-          )}
-
-          {/* Portion Selector */}
-          <Text style={addGroceryStyles.sectionTitle}>Portions</Text>
-          <View style={styles.portionInputContainer}>
-            <TouchableOpacity
-              style={styles.portionButton}
-              onPress={() => handlePortionChange(-0.25)}
-              disabled={isTracking || trackingPortions <= 0.25}
-            >
-              <Ionicons
-                name="remove-circle-outline"
-                size={32}
-                color={trackingPortions <= 0.25 ? colors.textSecondary : colors.primary}
-              />
-            </TouchableOpacity>
-            <View style={styles.portionInputWrapper}>
-              <TextInput
-                style={styles.portionInput}
-                value={trackingPortions.toString()}
-                onChangeText={(text) => {
-                  const num = parseFloat(text) || 0;
-                  if (num >= 0 && num <= 10) {
-                    setTrackingPortions(num);
-                  }
-                }}
-                keyboardType="decimal-pad"
-                editable={!isTracking}
-                selectTextOnFocus
-              />
-              <Text style={styles.portionLabel}>portions</Text>
+              {trackingDateQuickSelect === 'custom' && (
+                <View style={styles.customDateInputContainer}>
+                  <TextInput
+                    style={styles.dateInput}
+                    placeholder="YYYY-MM-DD"
+                    value={selectedTrackingDate}
+                    onChangeText={setSelectedTrackingDate}
+                    editable={!isTracking}
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              )}
             </View>
-            <TouchableOpacity
-              style={styles.portionButton}
-              onPress={() => handlePortionChange(0.25)}
-              disabled={isTracking || trackingPortions >= 10}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={32}
-                color={trackingPortions >= 10 ? colors.textSecondary : colors.primary}
-              />
-            </TouchableOpacity>
-          </View>
 
-          {/* Nutrition Preview */}
-          {nutritionPreview && (
-            <>
-              <Text style={addGroceryStyles.sectionTitle}>Nutrition Preview</Text>
-              <View style={styles.trackingNutrition}>
-                <View style={styles.nutritionItemRow}>
-                  <Text style={styles.nutritionItemLabel}>Calories</Text>
-                  <Text style={styles.nutritionItemValue}>
-                    {Math.round(nutritionPreview.calories)} kcal
-                  </Text>
+            {/* Portion Selector - In a card */}
+            <View style={styles.trackMealSection}>
+              <Text style={styles.trackMealSectionTitle}>Portions</Text>
+              <View style={styles.portionInputContainer}>
+                <TouchableOpacity
+                  style={styles.portionButton}
+                  onPress={() => handlePortionChange(-0.5)}
+                  disabled={isTracking || trackingPortions <= 0.5}
+                >
+                  <Ionicons
+                    name="remove-circle-outline"
+                    size={32}
+                    color={trackingPortions <= 0.5 ? colors.textSecondary : colors.primary}
+                  />
+                </TouchableOpacity>
+                <View style={styles.portionInputWrapper}>
+                  <TextInput
+                    style={styles.portionInput}
+                    value={trackingPortions.toString()}
+                    onChangeText={(text) => {
+                      const num = parseFloat(text) || 0;
+                      if (num >= 0 && num <= 10) {
+                        setTrackingPortions(num);
+                      }
+                    }}
+                    keyboardType="decimal-pad"
+                    editable={!isTracking}
+                    selectTextOnFocus
+                  />
+                  <Text style={styles.portionLabel}>portions</Text>
                 </View>
-                <View style={styles.nutritionItemRow}>
-                  <Text style={styles.nutritionItemLabel}>Protein</Text>
-                  <Text style={styles.nutritionItemValue}>
-                    {Math.round(nutritionPreview.protein)}g
-                  </Text>
-                </View>
-                <View style={styles.nutritionItemRow}>
-                  <Text style={styles.nutritionItemLabel}>Carbs</Text>
-                  <Text style={styles.nutritionItemValue}>
-                    {Math.round(nutritionPreview.carbs)}g
-                  </Text>
-                </View>
-                <View style={[styles.nutritionItemRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.nutritionItemLabel}>Fat</Text>
-                  <Text style={styles.nutritionItemValue}>
-                    {Math.round(nutritionPreview.fat)}g
-                  </Text>
+                <TouchableOpacity
+                  style={styles.portionButton}
+                  onPress={() => handlePortionChange(0.5)}
+                  disabled={isTracking || trackingPortions >= 10}
+                >
+                  <Ionicons
+                    name="add-circle-outline"
+                    size={32}
+                    color={trackingPortions >= 10 ? colors.textSecondary : colors.primary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Nutrition Preview - In a card */}
+            {nutritionPreview && (
+              <View style={styles.trackMealSection}>
+                <Text style={styles.trackMealSectionTitle}>Nutrition Preview</Text>
+                <View style={styles.trackingNutrition}>
+                  <View style={styles.nutritionItemRow}>
+                    <Text style={styles.nutritionItemLabel}>Calories</Text>
+                    <Text style={styles.nutritionItemValue}>
+                      {Math.round(nutritionPreview.calories).toLocaleString()} <Text style={styles.nutritionItemUnit}>kcal</Text>
+                    </Text>
+                  </View>
+                  <View style={styles.nutritionItemRow}>
+                    <Text style={styles.nutritionItemLabel}>Protein</Text>
+                    <Text style={styles.nutritionItemValue}>
+                      {Math.round(nutritionPreview.protein).toLocaleString()}<Text style={styles.nutritionItemUnit}>g</Text>
+                    </Text>
+                  </View>
+                  <View style={styles.nutritionItemRow}>
+                    <Text style={styles.nutritionItemLabel}>Carbs</Text>
+                    <Text style={styles.nutritionItemValue}>
+                      {Math.round(nutritionPreview.carbs).toLocaleString()}<Text style={styles.nutritionItemUnit}>g</Text>
+                    </Text>
+                  </View>
+                  <View style={[styles.nutritionItemRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.nutritionItemLabel}>Fat</Text>
+                    <Text style={styles.nutritionItemValue}>
+                      {Math.round(nutritionPreview.fat).toLocaleString()}<Text style={styles.nutritionItemUnit}>g</Text>
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </>
-          )}
+            )}
+          </ScrollView>
 
           {/* Action Buttons */}
           <View style={addGroceryStyles.actionButtons}>
@@ -841,7 +863,7 @@ function TrackMealModal({
                 (trackingPortions <= 0 || isTracking) && addGroceryStyles.addButtonDisabled,
               ]}
               onPress={handleTrackMeal}
-              disabled={trackingPortions <= 0 || isTracking}
+              disabled={trackingPortions <= 0.5 || isTracking}
             >
               {isTracking ? (
                 <ActivityIndicator size="small" color={colors.surface} />
@@ -1046,53 +1068,6 @@ export default function RecipesScreen() {
     }
   }, [selectedRecipe?.recipeID, userProfile?.defaultServingSize]); // Trigger when recipeID changes or profile loads
 
-  // Load tracked meals when recipe and profile are ready
-  useEffect(() => {
-    if (selectedRecipe && userProfile) {
-      // Auto-expand meal log if there are meals
-      loadTrackedMeals().then(() => {
-        // This will be updated when trackedMeals state changes
-      });
-    }
-  }, [selectedRecipe?.recipeID, userProfile, loadTrackedMeals]);
-
-  // Auto-expand meal log when meals are loaded
-  useEffect(() => {
-    if (trackedMeals.length > 0 && !mealLogExpanded) {
-      setMealLogExpanded(true);
-    }
-  }, [trackedMeals.length]);
-
-
-  const loadRecipes = async () => {
-    if (!auth.currentUser) return;
-
-    try {
-      const url = recipeFilter === 'saved' 
-        ? `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}?saved=true`
-        : `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`;
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error('Failed to load recipes');
-      }
-
-      const data = await response.json();
-      setRecipes(data.recipes || []);
-    } catch (error) {
-      console.error('Failed to load recipes:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadRecipes();
-  };
-
   const loadUserProfile = async () => {
     if (!auth.currentUser) return;
 
@@ -1108,7 +1083,7 @@ export default function RecipesScreen() {
     }
   };
 
-  // Load tracked meals for the selected recipe (last 30 days to catch any meals)
+  // Load tracked meals for the selected recipe (last 90 days to catch any meals)
   const loadTrackedMeals = useCallback(async () => {
     if (!auth.currentUser || !selectedRecipe || !userProfile) return;
 
@@ -1182,6 +1157,53 @@ export default function RecipesScreen() {
     }
   }, [selectedRecipe?.recipeID, userProfile]);
 
+  // Load tracked meals when recipe and profile are ready
+  useEffect(() => {
+    if (selectedRecipe && userProfile) {
+      // Auto-expand meal log if there are meals
+      loadTrackedMeals().then(() => {
+        // This will be updated when trackedMeals state changes
+      });
+    }
+  }, [selectedRecipe?.recipeID, userProfile, loadTrackedMeals]);
+
+  // Auto-expand meal log when meals are loaded
+  useEffect(() => {
+    if (trackedMeals.length > 0 && !mealLogExpanded) {
+      setMealLogExpanded(true);
+    }
+  }, [trackedMeals.length]);
+
+  const loadRecipes = async () => {
+    if (!auth.currentUser) return;
+
+    try {
+      const url = recipeFilter === 'saved' 
+        ? `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}?saved=true`
+        : `${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error('Failed to load recipes');
+      }
+
+      const data = await response.json();
+      setRecipes(data.recipes || []);
+    } catch (error) {
+      console.error('Failed to load recipes:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadRecipes();
+  };
+
+
   // Track a meal
   const trackMeal = async () => {
     if (!auth.currentUser || !selectedRecipe || !userProfile || trackingPortions <= 0) {
@@ -1241,7 +1263,7 @@ export default function RecipesScreen() {
       Alert.alert('Success', 'Meal tracked successfully!');
       setShowTrackMealModal(false);
       // Reset tracking state
-      setTrackingPortions(currentPortionSize || 1);
+      setTrackingPortions(1);
       setTrackingDateQuickSelect('today');
       setSelectedTrackingDate('');
       
@@ -2691,6 +2713,150 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
   },
+  // Track Meal Modal Styles
+  trackMealSection: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  trackMealSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  trackMealScrollView: {
+    flex: 1,
+  },
+  trackMealScrollContent: {
+    paddingBottom: 8,
+  },
+  dateQuickButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dateQuickButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  dateQuickButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  dateQuickButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  dateQuickButtonTextActive: {
+    color: colors.surface,
+    fontWeight: '700',
+  },
+  dateButtonIcon: {
+    marginRight: 4,
+  },
+  customDateInputContainer: {
+    marginTop: 12,
+  },
+  dateInput: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    textAlign: 'center',
+  },
+  trackingNutrition: {
+    padding: 4,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  nutritionItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  nutritionItemLabel: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  nutritionItemValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  nutritionItemUnit: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginLeft: 2,
+  },
+  portionInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    gap: 16,
+  },
+  portionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  portionInputWrapper: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  portionInput: {
+    minWidth: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  portionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
 });
 
 const addGroceryStyles = StyleSheet.create({
@@ -2705,6 +2871,8 @@ const addGroceryStyles = StyleSheet.create({
     borderTopRightRadius: 20,
     maxHeight: '90%',
     padding: 20,
+    flex: 1,
+    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -3021,35 +3189,6 @@ const addGroceryStyles = StyleSheet.create({
     marginBottom: 16,
     gap: 12,
   },
-  dateQuickButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  dateQuickButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-  },
-  dateQuickButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  dateQuickButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  dateQuickButtonTextActive: {
-    color: colors.surface,
-  },
   dateInputContainer: {
     marginBottom: 16,
   },
@@ -3091,50 +3230,6 @@ const addGroceryStyles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  portionInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    gap: 16,
-  },
-  portionButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  portionInputWrapper: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  portionInput: {
-    minWidth: 100,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  portionLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  trackingNutrition: {
-    padding: 20,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   trackingNutritionTitle: {
     fontSize: 14,
     fontWeight: '600',
@@ -3146,24 +3241,6 @@ const addGroceryStyles = StyleSheet.create({
   },
   nutritionBreakdown: {
     gap: 12,
-  },
-  nutritionItemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  nutritionItemLabel: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  nutritionItemValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
   },
   trackingButtons: {
     flexDirection: 'row',
