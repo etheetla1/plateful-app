@@ -15,6 +15,9 @@ import {
   Modal,
   FlatList,
   TextInput,
+  LayoutAnimation,
+  UIManager,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Recipe, GroceryList, PantryItem, FoodProfile, ScalingWarning } from '@plateful/shared';
@@ -45,6 +48,7 @@ interface AddToGroceryModalProps {
   onClose: () => void;
   onSuccess?: () => void;
 }
+
 
 function AddToGroceryModal({ visible, recipe, currentPortionSize, onClose, onSuccess }: AddToGroceryModalProps) {
   // API endpoint - platform aware
@@ -265,6 +269,7 @@ function AddToGroceryModal({ visible, recipe, currentPortionSize, onClose, onSuc
       transparent
       animationType="slide"
       onRequestClose={onClose}
+      statusBarTranslucent
     >
       <View style={addGroceryStyles.modalBackdrop}>
         <View style={addGroceryStyles.modalContent}>
@@ -633,6 +638,12 @@ export default function RecipesScreen() {
   const [currentWarnings, setCurrentWarnings] = useState<ScalingWarning[]>([]);
   const warningsShownRef = useRef<string | null>(null);
   
+
+  // Enable LayoutAnimation on Android
+  if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  }
+  
   // Sparkle animations for edited recipes
   const sparkleAnims = useRef<{ [key: string]: Animated.Value[] }>({});
 
@@ -659,6 +670,8 @@ export default function RecipesScreen() {
         setShowWarningsModal(false);
       }
       
+      // Check if meal is already tracked (load history for last 7 days)
+      
       // Don't auto-show on initial load - let user trigger it by adjusting portions
     } else {
       setCurrentPortionSize(null);
@@ -667,6 +680,7 @@ export default function RecipesScreen() {
       warningsShownRef.current = null;
     }
   }, [selectedRecipe?.recipeID, userProfile?.defaultServingSize]); // Trigger when recipeID changes or profile loads
+
 
   const loadRecipes = async () => {
     if (!auth.currentUser) return;
@@ -959,17 +973,6 @@ export default function RecipesScreen() {
             />
           )}
 
-          {selectedRecipe.recipeData.nutrition?.calories_per_portion && (
-            <View style={styles.metaInfo}>
-              <View style={styles.metaItem}>
-                <Ionicons name="flame" size={16} color={colors.textSecondary} />
-                <Text style={styles.metaText}>
-                  {selectedRecipe.recipeData.nutrition.calories_per_portion}
-                </Text>
-              </View>
-            </View>
-          )}
-
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
               <Ionicons name="list" size={20} color={colors.primary} /> Ingredients
@@ -1016,47 +1019,120 @@ export default function RecipesScreen() {
           </View>
 
           {selectedRecipe.recipeData.nutrition && currentPortionSize !== null && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                <Ionicons name="nutrition" size={20} color={colors.primary} /> Nutrition
-              </Text>
-              {(() => {
-                const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
-                const scaleFactor = currentPortionSize / originalPortions;
-                const scaledNutrition = scaleFactor !== 1
-                  ? scaleNutrition(selectedRecipe.recipeData.nutrition, scaleFactor)
-                  : selectedRecipe.recipeData.nutrition;
-                
-                return (
-                  <View style={styles.nutritionGrid}>
-                    {scaledNutrition.protein && (
-                      <View style={styles.nutritionItem}>
-                        <Text style={styles.nutritionLabel}>Protein</Text>
-                        <Text style={styles.nutritionValue}>
-                          {scaledNutrition.protein}
-                        </Text>
+            <>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  <Ionicons name="nutrition" size={20} color={colors.primary} /> Nutrition
+                </Text>
+                {(() => {
+                  const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
+                  const scaleFactor = currentPortionSize / originalPortions;
+                  const scaledNutrition = scaleFactor !== 1
+                    ? scaleNutrition(selectedRecipe.recipeData.nutrition, scaleFactor)
+                    : selectedRecipe.recipeData.nutrition;
+                  
+                  // Helper to extract numeric value from nutrition string (e.g., "105g" -> 105)
+                  const parseNutritionValue = (value: string): number => {
+                    if (!value) return 0;
+                    const match = value.match(/(\d+(?:\.\d+)?)/);
+                    return match ? parseFloat(match[1]) : 0;
+                  };
+                  
+                  // Calculate total and per portion values
+                  const getNutritionDisplay = (value: string | undefined) => {
+                    if (!value) return null;
+                    const totalValue = parseNutritionValue(value);
+                    const perPortionValue = totalValue / currentPortionSize;
+                    // Extract unit (e.g., "105g" -> "g")
+                    const unitMatch = value.match(/[\d.]+(.+)/);
+                    const unit = unitMatch ? unitMatch[1].trim() : '';
+                    const formattedPerPortion = `${Math.round(perPortionValue * 10) / 10}${unit ? unit : ''}`;
+                    return {
+                      total: value, // Keep original format with unit (total for current portion size)
+                      perPortion: formattedPerPortion, // Per portion value
+                    };
+                  };
+                  
+                  const protein = getNutritionDisplay(scaledNutrition.protein);
+                  const carbs = getNutritionDisplay(scaledNutrition.carbs);
+                  const fat = getNutritionDisplay(scaledNutrition.fat);
+                  
+                  // Calculate calories - calories_per_portion is already per portion
+                  const getCaloriesDisplay = () => {
+                    if (!scaledNutrition.calories_per_portion) return null;
+                    // Clean value first to remove "(estimated by AI)" before extracting unit
+                    const cleanedCalories = scaledNutrition.calories_per_portion.replace(/\s*\(estimated by AI\)/gi, '').trim();
+                    const perPortionValue = parseNutritionValue(cleanedCalories);
+                    const totalValue = perPortionValue * currentPortionSize;
+                    // Extract unit from cleaned value (e.g., "520 kcal" -> "kcal")
+                    const unitMatch = cleanedCalories.match(/[\d.]+(.+)/);
+                    const unit = unitMatch ? unitMatch[1].trim() : 'kcal';
+                    return {
+                      perPortion: `${Math.round(perPortionValue)} ${unit}`,
+                      total: `${Math.round(totalValue)} ${unit}`,
+                    };
+                  };
+                  
+                  const calories = getCaloriesDisplay();
+                  
+                  // Check if any nutrition value is estimated by AI
+                  const isEstimated = 
+                    scaledNutrition.calories_per_portion?.includes('(estimated by AI)') ||
+                    scaledNutrition.protein?.includes('(estimated by AI)') ||
+                    scaledNutrition.carbs?.includes('(estimated by AI)') ||
+                    scaledNutrition.fat?.includes('(estimated by AI)');
+                  
+                  // Remove "(estimated by AI)" from display values
+                  const cleanValue = (value: string) => value.replace(/\s*\(estimated by AI\)/gi, '').trim();
+                  
+                  return (
+                    <View style={styles.nutritionContainer}>
+                      {/* Calories - Full width row */}
+                      {calories && (
+                        <View style={styles.nutritionCaloriesRow}>
+                          <View style={styles.nutritionItemFull}>
+                            <Text style={styles.nutritionLabel}>Calories</Text>
+                            <Text style={styles.nutritionValue}>{cleanValue(calories.perPortion)}</Text>
+                            <Text style={styles.nutritionTotal}>total: {cleanValue(calories.total)}</Text>
+                          </View>
+                        </View>
+                      )}
+                      
+                      {/* Macros - Protein, Carbs, Fat in one row */}
+                      <View style={styles.nutritionMacrosRow}>
+                        {protein && (
+                          <View style={styles.nutritionItem}>
+                            <Text style={styles.nutritionLabel}>Protein</Text>
+                            <Text style={styles.nutritionValue}>{cleanValue(protein.perPortion)}</Text>
+                            <Text style={styles.nutritionTotal}>total: {cleanValue(protein.total)}</Text>
+                          </View>
+                        )}
+                        {carbs && (
+                          <View style={styles.nutritionItem}>
+                            <Text style={styles.nutritionLabel}>Carbs</Text>
+                            <Text style={styles.nutritionValue}>{cleanValue(carbs.perPortion)}</Text>
+                            <Text style={styles.nutritionTotal}>total: {cleanValue(carbs.total)}</Text>
+                          </View>
+                        )}
+                        {fat && (
+                          <View style={styles.nutritionItem}>
+                            <Text style={styles.nutritionLabel}>Fat</Text>
+                            <Text style={styles.nutritionValue}>{cleanValue(fat.perPortion)}</Text>
+                            <Text style={styles.nutritionTotal}>total: {cleanValue(fat.total)}</Text>
+                          </View>
+                        )}
                       </View>
-                    )}
-                    {scaledNutrition.carbs && (
-                      <View style={styles.nutritionItem}>
-                        <Text style={styles.nutritionLabel}>Carbs</Text>
-                        <Text style={styles.nutritionValue}>
-                          {scaledNutrition.carbs}
-                        </Text>
-                      </View>
-                    )}
-                    {scaledNutrition.fat && (
-                      <View style={styles.nutritionItem}>
-                        <Text style={styles.nutritionLabel}>Fat</Text>
-                        <Text style={styles.nutritionValue}>
-                          {scaledNutrition.fat}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })()}
-            </View>
+                      
+                      {/* Estimated by AI note */}
+                      {isEstimated && (
+                        <Text style={styles.nutritionEstimatedNote}>* All values estimated by AI</Text>
+                      )}
+                    </View>
+                  );
+                })()}
+              </View>
+
+            </>
           )}
 
           {selectedRecipe.recipeData.sourceUrl && (
@@ -1088,6 +1164,31 @@ export default function RecipesScreen() {
             <Ionicons name="cart" size={20} color={colors.surface} />
             <Text style={styles.addToGroceryButtonText}>Add to Grocery List</Text>
           </TouchableOpacity>
+
+          {/* Track Meal Card */}
+          <View style={styles.trackMealCard}>
+            {/* Header Row */}
+            <View style={styles.trackMealHeader}>
+              <Ionicons name="checkmark-circle" size={24} color={semanticColors.success} />
+              <Text style={styles.trackMealHeaderTitle}>Track Meal</Text>
+            </View>
+
+            {/* Add Meal Button */}
+            <TouchableOpacity style={styles.trackMealAddButton}>
+              <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+              <Text style={styles.trackMealAddButtonText}>Add Meal</Text>
+            </TouchableOpacity>
+
+            {/* Meal Log Section */}
+            <View style={styles.trackMealLogSection}>
+              <Text style={styles.trackMealLogHeader}>Meal Log ▼</Text>
+              <View style={styles.trackMealEmptyState}>
+                <Ionicons name="document-text-outline" size={44} color={colors.textSecondary} />
+                <Text style={styles.trackMealEmptyText}>No meals tracked yet</Text>
+                <Text style={styles.trackMealEmptyHint}>Tap 'Add Meal' to get started</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         <AddToGroceryModal
@@ -1654,9 +1755,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textPrimary,
   },
-  nutritionGrid: {
+  nutritionContainer: {
+    gap: 12,
+  },
+  nutritionCaloriesRow: {
+    width: '100%',
+  },
+  nutritionItemFull: {
+    width: '100%',
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+  },
+  nutritionMacrosRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   nutritionItem: {
@@ -1675,6 +1787,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  nutritionTotal: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  nutritionEstimatedNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
   },
   sourceButton: {
     flexDirection: 'row',
@@ -1731,6 +1855,81 @@ const styles = StyleSheet.create({
   },
   cardActionButton: {
     padding: 4,
+  },
+  // Track Meal Card Styles
+  trackMealCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  trackMealHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  trackMealHeaderIcon: {
+    // Icon styling handled inline
+  },
+  trackMealHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  trackMealAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: 8,
+  },
+  trackMealAddButtonIcon: {
+    // Icon styling handled inline
+  },
+  trackMealAddButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  trackMealLogSection: {
+    marginTop: 16,
+  },
+  trackMealLogHeader: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  trackMealEmptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  trackMealEmptyIcon: {
+    // Icon styling handled inline
+  },
+  trackMealEmptyText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  trackMealEmptyHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
 });
 
@@ -1974,6 +2173,287 @@ const addGroceryStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.surface,
+  },
+  // Meal tracking styles
+  trackingContainer: {
+    padding: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  // Meal list container
+  mealsListContainer: {
+    marginTop: 16,
+    gap: 12,
+  },
+  // Individual meal card
+  mealCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  mealCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  mealCardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  mealCardIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealCardHeaderText: {
+    flex: 1,
+    gap: 6,
+  },
+  mealCardDate: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  mealCardBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  mealCardBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  mealCardContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 8,
+    paddingTop: 16,
+  },
+  // Date selector styles
+  dateSelectorRow: {
+    marginBottom: 16,
+    gap: 12,
+  },
+  dateQuickButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  dateQuickButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  dateQuickButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  dateQuickButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dateQuickButtonTextActive: {
+    color: colors.surface,
+  },
+  dateInputContainer: {
+    marginBottom: 16,
+  },
+  dateInputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  dateInput: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    textAlign: 'center',
+  },
+  dateInputCompact: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    fontSize: 14,
+    color: colors.textPrimary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  trackingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  portionInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    gap: 16,
+  },
+  portionButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  portionInputWrapper: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  portionInput: {
+    minWidth: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  portionLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  trackingNutrition: {
+    padding: 20,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  trackingNutritionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 12,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  nutritionBreakdown: {
+    gap: 12,
+  },
+  nutritionItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  nutritionItemLabel: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  nutritionItemValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  trackingButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  trackingButton: {
+    flex: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  trackingButtonPrimary: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  trackingButtonSecondary: {
+    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  trackingButtonDanger: {
+    backgroundColor: semanticColors.error || '#F44336',
+  },
+  trackingButtonCancel: {
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  trackingButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.surface,
+  },
+  trackingButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  trackingButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
 });
 

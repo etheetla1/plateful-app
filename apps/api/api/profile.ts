@@ -61,7 +61,7 @@ app.put('/:userID', async (c) => {
     console.log(`📝 Processing profile update for user: ${userID}`);
     
     const body = await c.req.json<Partial<FoodProfile>>();
-    const { likes = [], dislikes = [], allergens = [], restrictions = [], displayName, timezone, cookingProficiency, defaultServingSize } = body;
+    const { likes = [], dislikes = [], allergens = [], restrictions = [], displayName, timezone, cookingProficiency, defaultServingSize, dailyMacroTargets } = body;
 
     const container = getContainer('userProfiles');
     if (!container) {
@@ -95,6 +95,7 @@ app.put('/:userID', async (c) => {
       timezone: timezone !== undefined ? (timezone.trim() || 'America/New_York') : (existingProfile?.timezone || 'America/New_York'),
       cookingProficiency: cookingProficiency !== undefined ? cookingProficiency : (existingProfile?.cookingProficiency || undefined),
       defaultServingSize: defaultServingSize !== undefined ? defaultServingSize : (existingProfile?.defaultServingSize || undefined),
+      dailyMacroTargets: dailyMacroTargets !== undefined ? dailyMacroTargets : existingProfile?.dailyMacroTargets,
       likes: Array.isArray(likes) ? likes : [],
       dislikes: Array.isArray(dislikes) ? dislikes : [],
       allergens: Array.isArray(allergens) ? allergens : [],

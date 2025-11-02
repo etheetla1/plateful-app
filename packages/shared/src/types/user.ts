@@ -13,6 +13,13 @@ export interface UserProfile extends User {
   };
 }
 
+export interface DailyMacroTargets {
+  calories?: number;
+  protein?: number; // grams
+  carbs?: number; // grams
+  fat?: number; // grams
+}
+
 export interface FoodProfile {
   id: string;
   userID: string;
@@ -20,6 +27,7 @@ export interface FoodProfile {
   timezone?: string; // Timezone for streak calculations (e.g., 'America/New_York'), defaults to Eastern Time
   cookingProficiency?: number; // Cooking skill level (1-5 scale), optional
   defaultServingSize?: number; // Default serving size for recipes (e.g., 4)
+  dailyMacroTargets?: DailyMacroTargets; // Daily macro targets for tracking
   likes: string[];
   dislikes: string[];
   allergens: string[];

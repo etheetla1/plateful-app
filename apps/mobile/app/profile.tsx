@@ -408,6 +408,11 @@ export default function ProfileScreen() {
   const [timezone, setTimezone] = useState('America/New_York');
   const [cookingProficiency, setCookingProficiency] = useState<number>(3); // Default to Intermediate
   const [defaultServingSize, setDefaultServingSize] = useState<string>('');
+  // Macro targets state
+  const [caloriesTarget, setCaloriesTarget] = useState<string>('');
+  const [proteinTarget, setProteinTarget] = useState<string>('');
+  const [carbsTarget, setCarbsTarget] = useState<string>('');
+  const [fatTarget, setFatTarget] = useState<string>('');
 
   useEffect(() => {
     if (user) {
@@ -453,6 +458,19 @@ export default function ProfileScreen() {
           setDefaultServingSize(loadedProfile.defaultServingSize.toString());
         } else {
           setDefaultServingSize('');
+        }
+
+        // Load macro targets
+        if (loadedProfile.dailyMacroTargets) {
+          setCaloriesTarget(loadedProfile.dailyMacroTargets.calories?.toString() || '');
+          setProteinTarget(loadedProfile.dailyMacroTargets.protein?.toString() || '');
+          setCarbsTarget(loadedProfile.dailyMacroTargets.carbs?.toString() || '');
+          setFatTarget(loadedProfile.dailyMacroTargets.fat?.toString() || '');
+        } else {
+          setCaloriesTarget('');
+          setProteinTarget('');
+          setCarbsTarget('');
+          setFatTarget('');
         }
         
         const likesCommon = loadedProfile.likes.filter(l => COMMON_LIKES.includes(l));
@@ -503,6 +521,39 @@ export default function ProfileScreen() {
 
       const url = `${API_BASE}/api/profile/${user.uid}`;
       
+      // Build macro targets object (only include if values are set)
+      const dailyMacroTargets: {
+        calories?: number;
+        protein?: number;
+        carbs?: number;
+        fat?: number;
+      } = {};
+      
+      if (caloriesTarget.trim()) {
+        const calories = parseInt(caloriesTarget.trim(), 10);
+        if (!isNaN(calories) && calories > 0) {
+          dailyMacroTargets.calories = calories;
+        }
+      }
+      if (proteinTarget.trim()) {
+        const protein = parseInt(proteinTarget.trim(), 10);
+        if (!isNaN(protein) && protein > 0) {
+          dailyMacroTargets.protein = protein;
+        }
+      }
+      if (carbsTarget.trim()) {
+        const carbs = parseInt(carbsTarget.trim(), 10);
+        if (!isNaN(carbs) && carbs > 0) {
+          dailyMacroTargets.carbs = carbs;
+        }
+      }
+      if (fatTarget.trim()) {
+        const fat = parseInt(fatTarget.trim(), 10);
+        if (!isNaN(fat) && fat > 0) {
+          dailyMacroTargets.fat = fat;
+        }
+      }
+
       const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -511,6 +562,7 @@ export default function ProfileScreen() {
           timezone: timezone || 'America/New_York',
           cookingProficiency: cookingProficiency,
           defaultServingSize: defaultServingSize.trim() ? parseInt(defaultServingSize.trim(), 10) || undefined : undefined,
+          dailyMacroTargets: Object.keys(dailyMacroTargets).length > 0 ? dailyMacroTargets : undefined,
           likes: allLikes,
           dislikes: allDislikes,
           allergens: allAllergens,
@@ -770,12 +822,54 @@ export default function ProfileScreen() {
         )}
 
         {activeTab === 'macros' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Macro Targets</Text>
-            <Text style={styles.sectionDescription}>
-              Coming soon! Set your daily macro targets here.
-            </Text>
-          </View>
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Daily Macro Targets</Text>
+              <Text style={styles.sectionDescription}>
+                Set your daily macro targets for tracking. These are optional and will be used to show progress on your dashboard.
+              </Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>Calories (kcal/day)</Text>
+              <Input
+                value={caloriesTarget}
+                onChangeText={setCaloriesTarget}
+                placeholder="e.g., 2000"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>Protein (g/day)</Text>
+              <Input
+                value={proteinTarget}
+                onChangeText={setProteinTarget}
+                placeholder="e.g., 150"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>Carbs (g/day)</Text>
+              <Input
+                value={carbsTarget}
+                onChangeText={setCarbsTarget}
+                placeholder="e.g., 200"
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.inputLabel}>Fat (g/day)</Text>
+              <Input
+                value={fatTarget}
+                onChangeText={setFatTarget}
+                placeholder="e.g., 65"
+                keyboardType="numeric"
+              />
+            </View>
+          </>
         )}
 
         <Button
@@ -858,6 +952,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    marginBottom: 8,
   },
   timezoneButton: {
     flexDirection: 'row',

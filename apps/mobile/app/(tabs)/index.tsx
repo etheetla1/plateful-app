@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Animated, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../theme/colors';
 import { getCurrentUser, onAuthStateChange } from '../../src/services/auth';
 import Header from '../../src/components/Header';
 import { auth } from '../../src/config/firebase';
+import type { FoodProfile, DailyNutritionTotals } from '@plateful/shared';
+import { aggregateDailyNutrition, calculatePercentage, formatNutritionValue } from '../../src/utils/nutrition';
 
 const API_BASE = Platform.select({
   web: 'http://localhost:3001',
@@ -137,6 +139,10 @@ export default function Dashboard() {
   const [streakDays, setStreakDays] = useState<DayInfo[]>([]);
   const [dayStreak, setDayStreak] = useState(0);
   const [userTimezone, setUserTimezone] = useState<string>('America/New_York'); // Default to Eastern Time
+  const [userProfile, setUserProfile] = useState<FoodProfile | null>(null);
+  const [weeklyNutrition, setWeeklyNutrition] = useState<{ date: string; totals: DailyNutritionTotals; dayName: string }[]>([]);
+  const [todayNutrition, setTodayNutrition] = useState<DailyNutritionTotals>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadProfile = useCallback(async (): Promise<void> => {
     if (!auth.currentUser) return;
@@ -145,12 +151,14 @@ export default function Dashboard() {
       const response = await fetch(`${API_BASE}/api/profile/${auth.currentUser.uid}`);
       if (response.ok) {
         const data = await response.json();
-        if (data.profile?.displayName) {
-          setUserName(data.profile.displayName);
+        const profile = data.profile as FoodProfile;
+        setUserProfile(profile);
+        if (profile?.displayName) {
+          setUserName(profile.displayName);
         }
         // Load timezone from profile, default to Eastern Time
-        if (data.profile?.timezone) {
-          setUserTimezone(data.profile.timezone);
+        if (profile?.timezone) {
+          setUserTimezone(profile.timezone);
         } else {
           setUserTimezone('America/New_York');
         }
@@ -341,42 +349,132 @@ export default function Dashboard() {
   // Update display name, timezone, and streak when screen comes into focus (e.g., after updating in profile)
   useFocusEffect(
     useCallback(() => {
-      // Load profile first (which sets timezone), then load streak data
+      // Load profile first (which sets timezone), then load streak data and nutrition
       loadProfile().then(() => {
         loadStreakData();
+        loadWeeklyNutrition();
       }).catch(() => {
         // Even if profile load fails, try to load streak with default timezone
         loadStreakData();
+        loadWeeklyNutrition();
       });
-    }, [loadProfile, loadStreakData])
+    }, [loadProfile, loadStreakData, loadWeeklyNutrition])
   );
+
+  // Load weekly nutrition data
+  const loadWeeklyNutrition = useCallback(async (showRefreshing = false) => {
+    if (!auth.currentUser || !userTimezone) return;
+
+    if (showRefreshing) {
+      setRefreshing(true);
+    }
+
+    try {
+      // Get last 7 days date range
+      const today = getTodayInTimezone(userTimezone);
+      const startDate = new Date(today);
+      startDate.setDate(startDate.getDate() - 6);
+      
+      const startDateStr = getDateStringInTimezone(startDate, userTimezone);
+      const endDateStr = getDateStringInTimezone(today, userTimezone);
+
+      const response = await fetch(
+        `${API_BASE}/api/meal-tracking/user/${auth.currentUser.uid}/range?startDate=${startDateStr}&endDate=${endDateStr}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const dailyData = data.dailyData || {};
+
+        // Generate last 7 days with nutrition data
+        const days: { date: string; totals: DailyNutritionTotals; dayName: string }[] = [];
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateStr = getDateStringInTimezone(date, userTimezone);
+          const dayName = date.toLocaleDateString('en-US', {
+            weekday: 'short',
+            timeZone: userTimezone,
+          });
+
+          days.push({
+            date: dateStr,
+            totals: dailyData[dateStr]?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            dayName,
+          });
+        }
+
+        setWeeklyNutrition(days);
+        
+        // Set today's nutrition
+        const todayStr = getDateStringInTimezone(today, userTimezone);
+        setTodayNutrition(dailyData[todayStr]?.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 });
+      }
+    } catch (error) {
+      console.error('Failed to load weekly nutrition:', error);
+      // Set empty data on error
+      const days: { date: string; totals: DailyNutritionTotals; dayName: string }[] = [];
+      const today = getTodayInTimezone(userTimezone);
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = getDateStringInTimezone(date, userTimezone);
+        const dayName = date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          timeZone: userTimezone,
+        });
+        days.push({
+          date: dateStr,
+          totals: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          dayName,
+        });
+      }
+      setWeeklyNutrition(days);
+      setTodayNutrition({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+    } finally {
+      if (showRefreshing) {
+        setRefreshing(false);
+      }
+    }
+  }, [userTimezone]);
+
+  const onRefresh = useCallback(() => {
+    loadProfile().then(() => {
+      loadStreakData();
+      loadWeeklyNutrition(true);
+    }).catch(() => {
+      loadStreakData();
+      loadWeeklyNutrition(true);
+    });
+  }, [loadProfile, loadStreakData, loadWeeklyNutrition]);
 
   useEffect(() => {
     if (auth.currentUser) {
-      // Load profile first (which sets timezone), then load streak data
+      // Load profile first (which sets timezone), then load streak data and nutrition
       loadProfile().then(() => {
         loadStreakData();
+        loadWeeklyNutrition();
       }).catch(() => {
         // Even if profile load fails, try to load streak with default timezone
         loadStreakData();
+        loadWeeklyNutrition();
       });
     }
-  }, [loadProfile, loadStreakData]);
+  }, [loadProfile, loadStreakData, loadWeeklyNutrition]);
 
-  const caloriesData = [
-    { day: 'Mon', value: 2000, isBlue: false },
-    { day: 'Tue', value: 1200, isBlue: true },
-    { day: 'Wed', value: 1800, isBlue: false },
-    { day: 'Thur', value: 1500, isBlue: true },
-    { day: 'Fri', value: 1900, isBlue: false },
-    { day: 'Sat', value: 1950, isBlue: true },
-    { day: 'Sun', value: 1550, isBlue: false },
-  ];
-
-  const maxCalories = 2000;
+  // Calculate max calories for chart (target or highest value)
+  const maxCalories = userProfile?.dailyMacroTargets?.calories 
+    ? Math.max(userProfile.dailyMacroTargets.calories, ...weeklyNutrition.map(d => d.totals.calories))
+    : Math.max(2000, ...weeklyNutrition.map(d => d.totals.calories), 1);
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <Header showLogo={true} />
       
       {/* Combined Welcome & Streak Card */}
@@ -398,33 +496,113 @@ export default function Dashboard() {
         </View>
       </View>
 
+      {/* Today's Progress */}
+      {userProfile?.dailyMacroTargets && (
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>📊</Text>
+            <Text style={styles.sectionTitle}>Today's Progress</Text>
+          </View>
+          
+          <View style={styles.progressContainer}>
+            <View style={styles.progressItem}>
+              <Text style={styles.progressLabel}>Calories</Text>
+              <Text style={styles.progressValue}>
+                {Math.round(todayNutrition.calories)} / {userProfile.dailyMacroTargets.calories || 0}
+              </Text>
+              {(() => {
+                const percentage = calculatePercentage(todayNutrition.calories, userProfile.dailyMacroTargets.calories);
+                return percentage !== null && (
+                  <Text style={styles.progressPercentage}>{percentage}%</Text>
+                );
+              })()}
+            </View>
+            <View style={styles.progressItem}>
+              <Text style={styles.progressLabel}>Protein</Text>
+              <Text style={styles.progressValue}>
+                {Math.round(todayNutrition.protein)}g / {userProfile.dailyMacroTargets.protein || 0}g
+              </Text>
+              {(() => {
+                const percentage = calculatePercentage(todayNutrition.protein, userProfile.dailyMacroTargets.protein);
+                return percentage !== null && (
+                  <Text style={styles.progressPercentage}>{percentage}%</Text>
+                );
+              })()}
+            </View>
+            <View style={styles.progressItem}>
+              <Text style={styles.progressLabel}>Carbs</Text>
+              <Text style={styles.progressValue}>
+                {Math.round(todayNutrition.carbs)}g / {userProfile.dailyMacroTargets.carbs || 0}g
+              </Text>
+              {(() => {
+                const percentage = calculatePercentage(todayNutrition.carbs, userProfile.dailyMacroTargets.carbs);
+                return percentage !== null && (
+                  <Text style={styles.progressPercentage}>{percentage}%</Text>
+                );
+              })()}
+            </View>
+            <View style={styles.progressItem}>
+              <Text style={styles.progressLabel}>Fat</Text>
+              <Text style={styles.progressValue}>
+                {Math.round(todayNutrition.fat)}g / {userProfile.dailyMacroTargets.fat || 0}g
+              </Text>
+              {(() => {
+                const percentage = calculatePercentage(todayNutrition.fat, userProfile.dailyMacroTargets.fat);
+                return percentage !== null && (
+                  <Text style={styles.progressPercentage}>{percentage}%</Text>
+                );
+              })()}
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Daily Calories */}
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionIcon}>🔻</Text>
-          <Text style={styles.sectionTitle}>Daily Calories</Text>
+          <Text style={styles.sectionTitle}>Daily Calories (Last 7 Days)</Text>
         </View>
 
         <View style={styles.chartContainer}>
           <View style={styles.chart}>
-            {caloriesData.map((item, index) => (
-              <View key={index} style={styles.barContainer}>
-                <View style={styles.barWrapper}>
-                  <View
-                    style={[
-                      styles.bar,
-                      {
-                        height: `${(item.value / maxCalories) * 100}%`,
-                        backgroundColor: item.isBlue ? colors.secondary : colors.primary,
-                      },
-                    ]}
-                  />
+            {weeklyNutrition.map((dayData, index) => {
+              const percentage = (dayData.totals.calories / maxCalories) * 100;
+              const isToday = dayData.date === getDateStringInTimezone(getTodayInTimezone(userTimezone), userTimezone);
+              return (
+                <View key={index} style={styles.barContainer}>
+                  <View style={styles.barWrapper}>
+                    {userProfile?.dailyMacroTargets?.calories && (
+                      <View
+                        style={[
+                          styles.targetLine,
+                          {
+                            bottom: `${(userProfile.dailyMacroTargets.calories / maxCalories) * 100}%`,
+                          },
+                        ]}
+                      />
+                    )}
+                    <View
+                      style={[
+                        styles.bar,
+                        {
+                          height: `${Math.min(percentage, 100)}%`,
+                          backgroundColor: isToday ? colors.primary : colors.secondary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.barValue}>{Math.round(dayData.totals.calories)}</Text>
+                  <Text style={styles.barLabel}>{dayData.dayName}</Text>
                 </View>
-                <Text style={styles.barValue}>{item.value}</Text>
-                <Text style={styles.barLabel}>{item.day}</Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
+          {userProfile?.dailyMacroTargets?.calories && (
+            <Text style={styles.targetLabel}>
+              Target: {userProfile.dailyMacroTargets.calories} kcal
+            </Text>
+          )}
         </View>
       </View>
 
@@ -432,30 +610,41 @@ export default function Dashboard() {
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionIcon}>🔻</Text>
-          <Text style={styles.sectionTitle}>Daily Macro Distribution</Text>
+          <Text style={styles.sectionTitle}>Today's Macro Distribution</Text>
         </View>
 
         <View style={styles.macroContainer}>
-          {/* Donut Chart - Simplified representation */}
-          <View style={styles.donutChart}>
-            <View style={styles.donutOuter}>
-              <View style={styles.donutInner} />
+          {/* Display today's macros */}
+          <View style={styles.macroList}>
+            <View style={styles.macroListItem}>
+              <View style={[styles.macroDot, { backgroundColor: colors.primary }]} />
+              <Text style={styles.macroLabel}>Protein</Text>
+              <Text style={styles.macroValue}>{Math.round(todayNutrition.protein)}g</Text>
+              {userProfile?.dailyMacroTargets?.protein && (
+                <Text style={styles.macroTarget}>
+                  / {userProfile.dailyMacroTargets.protein}g
+                </Text>
+              )}
             </View>
-          </View>
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-              <Text style={styles.legendText}>Protein</Text>
+            <View style={styles.macroListItem}>
+              <View style={[styles.macroDot, { backgroundColor: colors.secondary }]} />
+              <Text style={styles.macroLabel}>Carbs</Text>
+              <Text style={styles.macroValue}>{Math.round(todayNutrition.carbs)}g</Text>
+              {userProfile?.dailyMacroTargets?.carbs && (
+                <Text style={styles.macroTarget}>
+                  / {userProfile.dailyMacroTargets.carbs}g
+                </Text>
+              )}
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.secondary }]} />
-              <Text style={styles.legendText}>Carbs</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.secondaryLight }]} />
-              <Text style={styles.legendText}>Fat</Text>
+            <View style={styles.macroListItem}>
+              <View style={[styles.macroDot, { backgroundColor: colors.secondaryLight || '#FFC107' }]} />
+              <Text style={styles.macroLabel}>Fat</Text>
+              <Text style={styles.macroValue}>{Math.round(todayNutrition.fat)}g</Text>
+              {userProfile?.dailyMacroTargets?.fat && (
+                <Text style={styles.macroTarget}>
+                  / {userProfile.dailyMacroTargets.fat}g
+                </Text>
+              )}
             </View>
           </View>
         </View>
@@ -687,5 +876,79 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 16,
     color: colors.textPrimary,
+  },
+  // Progress styles
+  progressContainer: {
+    gap: 16,
+    marginTop: 12,
+  },
+  progressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  progressLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  progressValue: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginRight: 8,
+  },
+  progressPercentage: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    minWidth: 50,
+    textAlign: 'right',
+  },
+  // Target line for chart
+  targetLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: colors.error || '#F44336',
+    zIndex: 1,
+  },
+  targetLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // Macro list styles
+  macroList: {
+    gap: 16,
+  },
+  macroListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  macroDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  macroLabel: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  macroValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  macroTarget: {
+    fontSize: 14,
+    color: colors.textSecondary,
   },
 });

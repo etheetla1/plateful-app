@@ -5,6 +5,7 @@ export * from './types/chat';
 export * from './types/recipe';
 export * from './types/pantry';
 export * from './types/tutorial';
+export * from './types/meal-tracking';
 export * from './theme/colors';
 
 // Constants

@@ -12,6 +12,7 @@ const containers = {
   groceryLists: null as Container | null,
   groceryItems: null as Container | null,
   tutorials: null as Container | null,
+  mealTracking: null as Container | null,
 };
 
 /**
@@ -39,6 +40,7 @@ export function initCosmosDB() {
     containers.groceryLists = database.container('grocery-lists');
     containers.groceryItems = database.container('grocery-items');
     containers.tutorials = database.container('tutorials');
+    containers.mealTracking = database.container('meal-tracking');
 
     console.log('✅ Cosmos DB initialized successfully');
     return cosmosClient;
