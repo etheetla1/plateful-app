@@ -436,14 +436,16 @@ export default function Groceries() {
           style: 'destructive',
           onPress: async () => {
             try {
-      if (!auth.currentUser) return;
-      const response = await fetch(
-        `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${listID}`,
-        { method: 'DELETE' }
-      );
+              if (!auth.currentUser) return;
+              
+              const response = await fetch(
+                `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${listID}`,
+                { method: 'DELETE' }
+              );
 
               if (!response.ok) {
-                throw new Error('Failed to delete list');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.details || 'Failed to delete list');
               }
 
               await loadLists();
@@ -451,9 +453,9 @@ export default function Groceries() {
                 setSelectedList(null);
                 setViewMode('lists');
               }
-            } catch (error) {
+            } catch (error: any) {
               console.error('Failed to delete list:', error);
-              Alert.alert('Error', 'Failed to delete list');
+              Alert.alert('Error', error.message || 'Failed to delete list');
             }
           },
         },

@@ -68,6 +68,7 @@ app.get('/:userID/lists', async (c) => {
 
       return {
         id: doc.id,
+        listID: doc.listID || doc.id, // Use listID if exists, fallback to id for old documents
         name: doc.name,
         items: [], // Items stored separately, fetch via /lists/:listID/items
         itemCount, // Add item count for display
@@ -168,6 +169,7 @@ app.get('/:userID/lists/:listID', async (c) => {
 
     const list: GroceryList = {
       id: listDoc.id,
+      listID: listDoc.listID || listDoc.id, // Use listID if exists, fallback to id for old documents
       name: listDoc.name,
       items,
       userID: listDoc.userID,
@@ -211,8 +213,10 @@ app.post('/:userID/lists', async (c) => {
     }
 
     const now = new Date().toISOString();
+    const listID = generateId('grocery-list');
     const list: GroceryList = {
-      id: generateId('grocery-list'),
+      id: listID, // Cosmos DB requires id field
+      listID: listID, // Partition key (/listID) - this is the primary identifier
       name: name.trim(),
       items: [],
       userID: userID,
@@ -317,46 +321,8 @@ app.delete('/:userID/lists/:listID', async (c) => {
       return c.json({ error: 'Database not available' }, 503);
     }
 
-    // Verify ownership before deleting - query by userID (partition key)
-    try {
-      const { resources } = await listsContainer.items
-        .query({
-          query: 'SELECT * FROM c WHERE c.id = @listID AND c.userID = @userID',
-          parameters: [
-            { name: '@listID', value: listID },
-            { name: '@userID', value: userID }
-          ],
-        })
-        .fetchAll();
-
-      if (!resources || resources.length === 0) {
-        return c.json({ error: 'Grocery list not found' }, 404);
-      }
-      if (resources[0].userID !== userID) {
-        return c.json({ error: 'Unauthorized' }, 403);
-      }
-    } catch (error: any) {
-      console.error('Error fetching list:', error);
-      if (error?.code === 404 || error?.statusCode === 404) {
-        return c.json({ error: 'Grocery list not found' }, 404);
-      }
-      throw error;
-    }
-
-    // Delete all items for this list
-    const { resources: items } = await itemsContainer.items
-      .query({
-        query: 'SELECT * FROM c WHERE c.listID = @listID',
-        parameters: [{ name: '@listID', value: listID }],
-      })
-      .fetchAll();
-
-    await Promise.all(
-      items.map((item: any) => itemsContainer.item(item.id, listID).delete())
-    );
-
-    // Delete the list - query first to get the document, then delete
-    const { resources: listToDelete } = await listsContainer.items
+    // Verify list exists using query (same pattern as GET endpoint that successfully finds lists)
+    const { resources } = await listsContainer.items
       .query({
         query: 'SELECT * FROM c WHERE c.id = @listID AND c.userID = @userID',
         parameters: [
@@ -366,14 +332,114 @@ app.delete('/:userID/lists/:listID', async (c) => {
       })
       .fetchAll();
 
-    if (listToDelete && listToDelete.length > 0) {
-      await listsContainer.item(listToDelete[0].id, userID).delete();
+    if (!resources || resources.length === 0) {
+      return c.json({ error: 'Grocery list not found' }, 404);
+    }
+
+    const listDoc = resources[0];
+    
+    // Debug: Log IDs to check for mismatches
+    console.log('Query found list:', {
+      listDocId: listDoc.id,
+      listIDParam: listID,
+      match: listDoc.id === listID,
+      listDocUserID: listDoc.userID,
+      userIDParam: userID,
+    });
+    
+    if (listDoc.userID !== userID) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+
+    // Delete all items for this list
+    try {
+      const { resources: items } = await itemsContainer.items
+        .query({
+          query: 'SELECT * FROM c WHERE c.listID = @listID',
+          parameters: [{ name: '@listID', value: listID }],
+        })
+        .fetchAll();
+
+      if (items && items.length > 0) {
+        await Promise.all(
+          items.map((item: any) => itemsContainer.item(item.id, listID).delete())
+        );
+      }
+    } catch (error: any) {
+      console.error('Error deleting items:', error);
+      // Continue with list deletion even if items deletion fails
+    }
+
+    // Delete the list - Container partition key is /listID
+    // For new documents: use listID field
+    // For old documents (without listID): try undefined/null/empty/id as fallback
+    try {
+      const partitionKeyValue = listDoc.listID || listDoc.id; // Prefer listID, fallback to id for old docs
+      
+      console.log(`Deleting list:`, {
+        documentId: listDoc.id,
+        partitionKeyValue: partitionKeyValue,
+        hasListIDField: 'listID' in listDoc,
+      });
+      
+      try {
+        // Try with listID field first (for new documents)
+        await listsContainer.item(listDoc.id, partitionKeyValue).delete();
+        console.log(`✅ Delete succeeded!`);
+      } catch (firstAttempt: any) {
+        // For old documents without listID field, try undefined/null/empty
+        if (firstAttempt?.code === 404 && !('listID' in listDoc)) {
+          console.log(`Old document detected (no listID field), trying fallback partition keys...`);
+          const fallbacks = [
+            { value: undefined, desc: 'undefined' },
+            { value: null, desc: 'null' },
+            { value: '', desc: 'empty string' },
+          ];
+          
+          let succeeded = false;
+          for (const fallback of fallbacks) {
+            try {
+              await listsContainer.item(listDoc.id, fallback.value as any).delete();
+              console.log(`✅ Delete succeeded with: ${fallback.desc}`);
+              succeeded = true;
+              break;
+            } catch (fbError: any) {
+              if (fbError?.code !== 404) throw fbError;
+            }
+          }
+          
+          if (!succeeded) {
+            throw new Error('All partition key attempts failed for old document');
+          }
+        } else {
+          throw firstAttempt;
+        }
+      }
+      
+    } catch (deleteError: any) {
+      console.error('❌ Delete failed:', {
+        code: deleteError?.code,
+        statusCode: deleteError?.statusCode,
+        message: deleteError?.message?.substring(0, 200),
+      });
+      
+      if (deleteError?.code === 404 || deleteError?.statusCode === 404) {
+        return c.json({ 
+          error: 'Failed to delete grocery list',
+          details: 'The list exists but deletion fails. The container partition key (/listID) does not match the document structure (no listID field).',
+        }, 500);
+      }
+      
+      throw deleteError;
     }
 
     return c.json({ message: 'Grocery list deleted successfully' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting grocery list:', error);
-    return c.json({ error: 'Failed to delete grocery list' }, 500);
+    return c.json({ 
+      error: 'Failed to delete grocery list',
+      details: error?.message || 'Unknown error'
+    }, 500);
   }
 });
 
