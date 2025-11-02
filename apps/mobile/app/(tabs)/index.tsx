@@ -8,6 +8,7 @@ import Header from '../../src/components/Header';
 import { auth } from '../../src/config/firebase';
 import type { FoodProfile, DailyNutritionTotals } from '@plateful/shared';
 import { aggregateDailyNutrition, calculatePercentage, formatNutritionValue } from '../../src/utils/nutrition';
+import { dailyTips } from '../../src/constants/dailyTips';
 
 const API_BASE = Platform.select({
   web: 'http://localhost:3001',
@@ -21,6 +22,23 @@ interface DayInfo {
   dayOfMonth: number;
   dayName: string;
   completed: boolean;
+}
+
+// Daily Tip Card Component
+function DailyTipCard() {
+  // Get today's day of month (1-31)
+  const dayOfMonth = new Date().getDate();
+  const tip = dailyTips[dayOfMonth - 1] || dailyTips[0]; // Use day as index (0-indexed)
+
+  return (
+    <View style={styles.tipCard}>
+      <View style={styles.tipHeader}>
+        <Ionicons name="bulb" size={24} color={colors.primary} style={styles.tipIcon} />
+        <Text style={styles.tipTitle}>Daily Tip</Text>
+      </View>
+      <Text style={styles.tipText}>{tip}</Text>
+    </View>
+  );
 }
 
 // Streak Day Component with Gold Sparkles
@@ -538,6 +556,9 @@ export default function Dashboard() {
         </View>
       </View>
 
+      {/* Daily Tip */}
+      <DailyTipCard />
+
       {/* Today's Progress */}
       {userProfile?.dailyMacroTargets && (
         <View style={styles.card}>
@@ -887,10 +908,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     zIndex: 1,
   },
+  tipCard: {
+    backgroundColor: colors.surface,
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(115, 217, 193, 0.2)', // colors.primary with 20% opacity
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  tipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tipIcon: {
+    marginRight: 8,
+  },
+  tipTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  tipText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSecondary,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionIcon: {
     marginRight: 8,
@@ -1046,14 +1099,14 @@ const styles = StyleSheet.create({
   },
   // Progress styles
   progressContainer: {
-    gap: 16,
-    marginTop: 12,
+    gap: 12,
+    marginTop: 8,
   },
   progressItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
