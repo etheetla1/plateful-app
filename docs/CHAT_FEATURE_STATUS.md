@@ -184,6 +184,8 @@ ANTHROPIC_API_KEY=sk-ant-api03-your-anthropic-key-here
 
 ### **Cosmos DB Collections**
 
+**Database:** `plateful-core`
+
 **chatConversations:**
 ```typescript
 {
@@ -221,6 +223,26 @@ ANTHROPIC_API_KEY=sk-ant-api03-your-anthropic-key-here
   createdAt: string;
 }
 ```
+
+**pantries:**
+- Partition Key: `/userID`
+- Purpose: User pantry items
+
+**grocery-lists:**
+- Partition Key: `/userID`
+- Purpose: User grocery lists
+
+**grocery-items:**
+- Partition Key: `/listID`
+- Purpose: Items within grocery lists
+
+**tutorials:**
+- Partition Key: `/userID`
+- Purpose: Saved tutorials and learning content
+
+**meal-tracking:**
+- Partition Key: `/userID`
+- Purpose: Tracked meals and daily nutrition data
 
 ### **AI Configuration**
 - **Model:** claude-haiku-4-5-20251001 (fast, cost-effective)

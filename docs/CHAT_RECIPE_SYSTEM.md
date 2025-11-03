@@ -71,6 +71,26 @@ Recipe Display (Mobile app shows structured recipe)
 - **Unique Keys**: `/recipeNameLower`, `/sourceUrlLower`
 - **Purpose**: Store structured recipe data
 
+#### Container: `pantries`
+- **Partition Key**: `/userID`
+- **Purpose**: Store user pantry items
+
+#### Container: `grocery-lists`
+- **Partition Key**: `/userID`
+- **Purpose**: Store user grocery lists
+
+#### Container: `grocery-items`
+- **Partition Key**: `/listID`
+- **Purpose**: Store items within grocery lists
+
+#### Container: `tutorials`
+- **Partition Key**: `/userID`
+- **Purpose**: Store saved tutorials and learning content
+
+#### Container: `meal-tracking`
+- **Partition Key**: `/userID`
+- **Purpose**: Store tracked meals and daily nutrition data
+
 ```json
 {
   "id": "recipe-...",
@@ -241,6 +261,26 @@ npm install
 - Container ID: `recipes`
 - Partition key: `/userID`
 - Unique keys: `/recipeNameLower`, `/sourceUrlLower`
+
+**Container: pantries**
+- Container ID: `pantries`
+- Partition key: `/userID`
+
+**Container: grocery-lists**
+- Container ID: `grocery-lists`
+- Partition key: `/userID`
+
+**Container: grocery-items**
+- Container ID: `grocery-items`
+- Partition key: `/listID`
+
+**Container: tutorials**
+- Container ID: `tutorials`
+- Partition key: `/userID`
+
+**Container: meal-tracking**
+- Container ID: `meal-tracking`
+- Partition key: `/userID`
 
 4. Copy the endpoint and primary key to your `.env` file
 

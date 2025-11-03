@@ -27,6 +27,11 @@ The flow includes:
 | `chat-messages` | `/conversationID` | `/messageIndex` | Ordered chat history per conversation. |
 | `user-profiles` | `/userID` | `/email`, `/phoneNumber`, `/username` | User identity and preferences. |
 | `recipes` | `/userID` | `/recipeNameLower`, `/sourceUrlLower` | Structured recipe data tied to user. |
+| `pantries` | `/userID` | — | User pantry items. |
+| `grocery-lists` | `/userID` | — | User grocery lists. |
+| `grocery-items` | `/listID` | — | Items within grocery lists. |
+| `tutorials` | `/userID` | — | Saved tutorials and learning content. |
+| `meal-tracking` | `/userID` | — | Tracked meals and nutrition data. |
 
 Each recipe optionally links back to its originating conversation through `conversationID`.
 
