@@ -20,7 +20,7 @@
         "buildType": "apk"
       },
       "env": {
-        "NODE_ENV": "staging"
+        "NODE_ENV": "development"
       },
       "channel": "preview"
     },
