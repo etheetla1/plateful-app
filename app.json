@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "e1d8f620-391d-4941-84a2-4ebbcbbd7f8e"
+      }
+    },
+    "android": {
+      "package": "com.kingeli1221.plateful"
+    }
+  }
+}

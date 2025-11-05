@@ -4,6 +4,7 @@
     "slug": "plateful",
     "owner": "kingeli1221",
     "version": "1.0.0",
+    "main": "expo-router/entry",
     "orientation": "portrait",
     "icon": "./assets/logo-circle.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +18,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.plateful.app",
+      "bundleIdentifier": "com.kingeli1221.plateful",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -27,7 +28,7 @@
         "foregroundImage": "./assets/logo-circle.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.plateful.app",
+      "package": "com.kingeli1221.plateful",
       "versionCode": 1,
       "compileSdkVersion": 34,
       "targetSdkVersion": 34,
@@ -56,7 +57,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.plateful.app"
+          "iosUrlScheme": "com.kingeli1221.plateful"
         }
       ]
     ],
