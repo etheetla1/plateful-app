@@ -11,7 +11,26 @@ export async function searchRecipe(searchQuery: string, profile?: FoodProfile | 
     apiKey: process.env.ANTHROPIC_API_KEY 
   });
 
-  console.log(`Searching for recipe: ${searchQuery}`);
+  // Modify search query based on cooking proficiency
+  let modifiedSearchQuery = searchQuery;
+  if (profile?.cookingProficiency) {
+    console.log(`🔧 Cooking proficiency detected: ${profile.cookingProficiency}`);
+    if (profile.cookingProficiency === 1) {
+      // Level 1 (Beginner): Add "easy kid friendly"
+      modifiedSearchQuery = `${searchQuery} easy kid friendly`;
+      console.log(`✅ Modified search query for Beginner: "${modifiedSearchQuery}"`);
+    } else if (profile.cookingProficiency === 2) {
+      // Level 2 (Novice): Add "easy"
+      modifiedSearchQuery = `${searchQuery} easy`;
+      console.log(`✅ Modified search query for Novice: "${modifiedSearchQuery}"`);
+    }
+    // Level 3 (Intermediate): No modification (neutral)
+    // Level 4-5 (Experienced/Advanced): Handled via context below
+  } else {
+    console.log(`ℹ️ No cooking proficiency in profile, using original query`);
+  }
+
+  console.log(`🔍 Searching for recipe: "${modifiedSearchQuery}" (original: "${searchQuery}")`);
 
   // Build dietary restrictions context for search
   let restrictionsNote = '';
@@ -26,6 +45,19 @@ export async function searchRecipe(searchQuery: string, profile?: FoodProfile | 
     if (restrictions.length > 0) {
       restrictionsNote = `\n\nIMPORTANT: The recipe must be ${restrictions.join(', ')}. Filter out any recipes that contain these.`;
     }
+  }
+
+  // Build cooking proficiency context for search
+  let proficiencyNote = '';
+  if (profile?.cookingProficiency) {
+    if (profile.cookingProficiency === 1 || profile.cookingProficiency === 2) {
+      // Levels 1-2: Emphasize simple, beginner-friendly recipes
+      proficiencyNote = `\n\nIMPORTANT: Prioritize simple, beginner-friendly recipes with clear step-by-step instructions.`;
+    } else if (profile.cookingProficiency === 4 || profile.cookingProficiency === 5) {
+      // Levels 4-5: Prefer advanced techniques when available, but don't exclude simple recipes
+      proficiencyNote = `\n\nNOTE: Prefer recipes with advanced techniques or complex methods when available, but simple recipes are acceptable if that's what the dish naturally is (e.g., grilled cheese sandwich).`;
+    }
+    // Level 3: No special context (neutral)
   }
 
   const response = await (client.messages.create as any)({
@@ -54,7 +86,7 @@ export async function searchRecipe(searchQuery: string, profile?: FoodProfile | 
     ],
     messages: [{
       role: "user",
-      content: `Search for: ${searchQuery}${restrictionsNote}
+      content: `Search for: ${modifiedSearchQuery}${restrictionsNote}${proficiencyNote}
 
 
 Find a specific recipe page URL (not a homepage or category page) from any reliable cooking website.

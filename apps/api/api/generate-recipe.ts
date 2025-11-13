@@ -44,6 +44,9 @@ app.post('/', async (c) => {
         profile = resource || null;
         if (profile) {
           console.log(`✅ User profile found with ${profile.likes.length} likes, ${profile.allergens.length} allergens`);
+          if (profile.cookingProficiency) {
+            console.log(`👨‍🍳 Cooking proficiency: ${profile.cookingProficiency} (${['Beginner', 'Novice', 'Intermediate', 'Experienced', 'Advanced'][profile.cookingProficiency - 1]})`);
+          }
         }
       } catch (error) {
         console.log(`ℹ️ No profile found for user ${userID}, proceeding without preferences`);
