@@ -72,3 +72,5 @@ export function calculatePercentage(actual: number, target: number | undefined):
   return Math.round((actual / target) * 100);
 }
 
+
+

@@ -230,9 +230,27 @@ export function parseIngredient(
     };
   }
 
+  // Normalize Unicode fraction characters to regular fractions (e.g., "½" → "1/2")
+  let normalizedText = trimmed
+    .replace(/½/g, '1/2')
+    .replace(/⅓/g, '1/3')
+    .replace(/⅔/g, '2/3')
+    .replace(/¼/g, '1/4')
+    .replace(/¾/g, '3/4')
+    .replace(/⅕/g, '1/5')
+    .replace(/⅖/g, '2/5')
+    .replace(/⅗/g, '3/5')
+    .replace(/⅘/g, '4/5')
+    .replace(/⅙/g, '1/6')
+    .replace(/⅚/g, '5/6')
+    .replace(/⅛/g, '1/8')
+    .replace(/⅜/g, '3/8')
+    .replace(/⅝/g, '5/8')
+    .replace(/⅞/g, '7/8');
+
   // Normalize quantity ranges (e.g., "3-4 tablespoons" → "3.5 tablespoons")
   // Use average of the range, but prefer the first value if it's a simple case
-  let normalizedText = trimmed.replace(/(\d+)\s*-\s*(\d+)/g, (match, first, second) => {
+  normalizedText = normalizedText.replace(/(\d+)\s*-\s*(\d+)/g, (match, first, second) => {
     const firstNum = parseInt(first, 10);
     const secondNum = parseInt(second, 10);
     if (!isNaN(firstNum) && !isNaN(secondNum) && firstNum < secondNum) {
