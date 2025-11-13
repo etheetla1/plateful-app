@@ -96,6 +96,16 @@ export function roundToReasonableMeasurement(value: number, unit: string): numbe
     }
   }
 
+  // Length/measurement units (inch, knob) - round to 0.25 increments for small values
+  if (normalizedUnit === 'inch' || normalizedUnit === 'inches' || normalizedUnit === 'in' ||
+      normalizedUnit === 'knob' || normalizedUnit === 'knobs') {
+    if (value < 2) {
+      return roundToIncrement(value, 0.25);
+    } else {
+      return roundToIncrement(value, 0.5);
+    }
+  }
+
   // Volume (ml, l) - similar to weight
   if (normalizedUnit === 'ml' || normalizedUnit === 'milliliter' || normalizedUnit === 'milliliters' ||
       normalizedUnit === 'millilitre' || normalizedUnit === 'millilitres') {
@@ -209,6 +219,47 @@ function isWholeOnlyItem(unit: string): boolean {
 }
 
 /**
+ * Filters out notes that contain quantity references (e.g., "from about 2 large lemons").
+ * These notes don't make sense when scaling, so we remove them.
+ */
+function filterQuantityReferencesFromNotes(notes: string): string {
+  if (!notes) return notes;
+  
+  // Split notes by comma and filter out parts that contain quantity references
+  const noteParts = notes.split(',').map(part => part.trim()).filter(part => {
+    if (!part) return false;
+    
+    // Check for patterns that indicate quantity references:
+    // - "from about X" or "from X"
+    // - "about X" followed by a noun
+    // - "X large/small/medium" followed by a noun
+    // - Numbers followed by descriptive words that suggest quantities
+    
+    const lowerPart = part.toLowerCase();
+    
+    // Remove parts with "from about" or "from" followed by a number
+    if (/from\s+(about\s+)?\d+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Remove parts with "about" followed by a number and a noun
+    if (/about\s+\d+\s+\w+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Remove parts with numbers followed by size descriptors and nouns (e.g., "2 large lemons")
+    if (/\d+\s+(large|small|medium|extra\s+large)\s+\w+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Keep other notes (preparation instructions, etc.)
+    return true;
+  });
+  
+  return noteParts.join(', ');
+}
+
+/**
  * Converts volume units to smaller units when quantity gets too small for practical measurement.
  * - Cups < 1/4 cup → convert to tablespoons
  * - Tablespoons < 1 tbsp → convert to teaspoons
@@ -287,6 +338,8 @@ function getUnitForm(quantity: number, unit: string): string {
     if (normalizedUnit === 'cans' || normalizedUnit === 'can') return 'can';
     if (normalizedUnit === 'bunches' || normalizedUnit === 'bunch') return 'bunch';
     if (normalizedUnit === 'fluid ounces') return 'fluid ounce';
+    if (normalizedUnit === 'inches' || normalizedUnit === 'in' || normalizedUnit === 'inch') return 'inch';
+    if (normalizedUnit === 'knobs' || normalizedUnit === 'knob') return 'knob';
   } else {
     // For quantity !== 1, return plural form
     if (normalizedUnit === 'tablespoon') return 'tablespoons';
@@ -306,6 +359,8 @@ function getUnitForm(quantity: number, unit: string): string {
     if (normalizedUnit === 'can') return 'cans';
     if (normalizedUnit === 'bunch') return 'bunches';
     if (normalizedUnit === 'fluid ounce') return 'fluid ounces';
+    if (normalizedUnit === 'inch') return 'inches';
+    if (normalizedUnit === 'knob') return 'knobs';
   }
   
   // Return original if no conversion needed (already in correct form or unknown unit)
@@ -378,10 +433,16 @@ export function scaleIngredient(
   // Parse the ingredient
   const parsed = parseIngredient(ingredient);
 
-  // If we couldn't parse a quantity (still 1 with no unit), return original
+  // If we couldn't parse a quantity (still 1 with no unit), check if we should scale it
+  // For non-standard units or count items without units, we can still scale the quantity
   if (parsed.quantity === 1 && !parsed.unit && ingredient.trim() !== parsed.name) {
-    // Might have a number but no standard unit - try to preserve it
-    return ingredient;
+    // Check if the name starts with a number - if so, we should try to scale it
+    const nameStartsWithNumber = /^\d+/.test(parsed.name.trim());
+    if (!nameStartsWithNumber) {
+      // No number in name, might be a descriptive ingredient - preserve original
+      return ingredient;
+    }
+    // If name has a number, we'll proceed with scaling (the number will be scaled)
   }
 
   // Calculate scale factor
@@ -396,19 +457,30 @@ export function scaleIngredient(
   // Scale the quantity
   const scaledQuantity = parsed.quantity * scaleFactor;
   
-  // Round to reasonable measurement
-  let roundedQuantity = roundToReasonableMeasurement(scaledQuantity, parsed.unit);
-  let finalUnit = parsed.unit;
-  
-  // Convert to smaller volume units if quantity gets too small for practical measurement
+  // Convert to smaller volume units BEFORE rounding to catch cases like 1/8 cup (0.125)
   // This makes measurements more practical (e.g., "2 tbsp" instead of "1/8 cup")
-  const converted = convertToSmallerVolumeUnit(roundedQuantity, finalUnit);
-  roundedQuantity = converted.quantity;
-  finalUnit = converted.unit;
+  // Check the original scaled quantity to determine if conversion is needed
+  const convertedBeforeRounding = convertToSmallerVolumeUnit(scaledQuantity, parsed.unit);
+  let roundedQuantity: number;
+  let finalUnit: string;
   
-  // Re-round after conversion to ensure proper rounding for the new unit
-  if (converted.unit !== parsed.unit) {
-    roundedQuantity = roundToReasonableMeasurement(roundedQuantity, finalUnit);
+  // If conversion happened, round the converted quantity; otherwise round the original
+  if (convertedBeforeRounding.unit !== parsed.unit) {
+    // Conversion happened - round the converted quantity
+    roundedQuantity = roundToReasonableMeasurement(convertedBeforeRounding.quantity, convertedBeforeRounding.unit);
+    finalUnit = convertedBeforeRounding.unit;
+  } else {
+    // No conversion needed - round the original scaled quantity
+    roundedQuantity = roundToReasonableMeasurement(scaledQuantity, parsed.unit);
+    finalUnit = parsed.unit;
+    
+    // After rounding, check again if conversion is now needed (e.g., 0.125 rounded to 0.25, but we still want to convert)
+    // This handles edge cases where rounding changes the value
+    const convertedAfterRounding = convertToSmallerVolumeUnit(roundedQuantity, finalUnit);
+    if (convertedAfterRounding.unit !== finalUnit) {
+      roundedQuantity = roundToReasonableMeasurement(convertedAfterRounding.quantity, convertedAfterRounding.unit);
+      finalUnit = convertedAfterRounding.unit;
+    }
   }
   
   // Enforce minimum quantities when scaling DOWN to prevent "0 cups", "0 cans", etc.
@@ -477,7 +549,19 @@ export function scaleIngredient(
   const formattedQuantity = formatQuantity(roundedQuantity, finalUnit);
   
   // Get the correct singular/plural form of the unit
-  const unitForm = getUnitForm(roundedQuantity, finalUnit);
+  // Special case: if unit is "inch" and name contains "knob", "inch" is a descriptor (stays singular)
+  // e.g., "1 inch knob" → "2 inch knobs" (not "2 inches knobs")
+  let unitForm = getUnitForm(roundedQuantity, finalUnit);
+  const normalizedFinalUnit = finalUnit.toLowerCase().trim();
+  const normalizedName = parsed.name.toLowerCase().trim();
+  
+  if (normalizedFinalUnit === 'inch' || normalizedFinalUnit === 'inches') {
+    // Check if "inch" is being used as a descriptor (followed by a noun like "knob")
+    if (normalizedName.includes('knob') || normalizedName.startsWith('knob')) {
+      // "Inch" is a descriptor, keep it singular
+      unitForm = 'inch';
+    }
+  }
 
   // Reconstruct the ingredient string
   let result = '';
@@ -494,16 +578,32 @@ export function scaleIngredient(
   
   // Add ingredient name
   if (parsed.name) {
-    result = result ? `${result} ${parsed.name}` : parsed.name;
+    let ingredientName = parsed.name;
+    
+    // Special case: if we have "inch knob" and quantity > 1, pluralize "knob"
+    // e.g., "1 inch knob" → "2 inch knobs"
+    if (normalizedFinalUnit === 'inch' || normalizedFinalUnit === 'inches') {
+      if (normalizedName.includes('knob')) {
+        if (roundedQuantity !== 1) {
+          // Pluralize "knob" to "knobs"
+          ingredientName = ingredientName.replace(/\bknob\b/gi, 'knobs');
+        }
+      }
+    }
+    
+    result = result ? `${result} ${ingredientName}` : ingredientName;
   }
   
-  // Add notes with proper comma placement
+  // Add notes with proper comma placement, but filter out quantity references
   if (parsed.notes) {
-    // Only add comma if we have a result before the notes
-    if (result) {
-      result = `${result}, ${parsed.notes}`;
-    } else {
-      result = parsed.notes;
+    const filteredNotes = filterQuantityReferencesFromNotes(parsed.notes);
+    if (filteredNotes) {
+      // Only add comma if we have a result before the notes
+      if (result) {
+        result = `${result}, ${filteredNotes}`;
+      } else {
+        result = filteredNotes;
+      }
     }
   }
 

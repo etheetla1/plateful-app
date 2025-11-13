@@ -75,6 +75,10 @@ function normalizeUnit(unit: string): string {
     return 'cans';
   } else if (lower === 'bunch' || lower === 'bunches') {
     return 'bunches';
+  } else if (lower === 'inch' || lower === 'inches' || lower === 'in') {
+    return 'inch';
+  } else if (lower === 'knob' || lower === 'knobs') {
+    return 'knob';
   }
   return lower;
 }
@@ -311,6 +315,8 @@ export function parseIngredient(
     /((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s*(boxes?|box)\b/i,
     /((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s*(cans?|can)\b/i,
     /((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s*(bunches?|bunch)\b/i,
+    /((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s*(inch|inches|in)\b/i,
+    /((?:\d+\s+)?\d+\/\d+|\d+(?:\.\d+)?)\s*(knobs?|knob)\b/i,
   ];
 
   // Try to match unit patterns
@@ -415,6 +421,20 @@ export function parseIngredient(
     .trim()
     .replace(/,$/, '')
     .replace(/^,\s*/, '');
+
+  // Remove any leftover numbers from the name that match the parsed quantity
+  // This prevents "3 cloves" from showing as "0.75 3 cloves" when scaled
+  if (quantity > 0 && unit) {
+    // Remove standalone numbers that match the quantity (with some tolerance for rounding)
+    const quantityStr = quantity.toString();
+    const quantityInt = Math.round(quantity);
+    
+    // Remove patterns like "3 " or " 3 " that match the quantity
+    finalName = finalName
+      .replace(new RegExp(`^${quantityInt}\\s+`, 'i'), '') // Remove at start
+      .replace(new RegExp(`\\s+${quantityInt}\\s+`, 'i'), ' ') // Remove in middle
+      .replace(new RegExp(`\\s+${quantityInt}$`, 'i'), ''); // Remove at end
+  }
 
   // If name is empty after parsing, use the original string as name
   if (!finalName) {
