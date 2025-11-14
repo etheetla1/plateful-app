@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ const API_BASE = Platform.select({
 
 export default function ChatScreen() {
   const params = useLocalSearchParams<{ editingConversationID?: string }>();
+  const router = useRouter();
   const [conversationID, setConversationID] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -96,7 +97,7 @@ export default function ChatScreen() {
         }, []);
         
         // Sort by timestamp to ensure correct order
-        uniqueMessages.sort((a, b) => 
+        uniqueMessages.sort((a: ChatMessage, b: ChatMessage) => 
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         
@@ -156,7 +157,13 @@ export default function ChatScreen() {
     }
 
     try {
-      // Clear current intent when starting new conversation
+      // Clear navigation params to prevent switching back to old conversation
+      router.setParams({ editingConversationID: undefined });
+      
+      // Clear current state first
+      setConversationID(null);
+      setMessages([]);
+      setConversation(null);
       setCurrentIntent(null);
       
       const response = await fetch(`${API_BASE}/api/chat/conversation`, {
@@ -197,7 +204,15 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let errorMessage = 'Unknown error';
+      
+      if (error instanceof TypeError) {
+        // Network error - likely can't reach the API
+        errorMessage = `Network error: Cannot connect to API at ${API_BASE}. Make sure the API server is running on port 3001.`;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       Alert.alert('Error', `Failed to start chat: ${errorMessage}`);
     }
   };

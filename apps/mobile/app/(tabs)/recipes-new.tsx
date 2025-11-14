@@ -26,6 +26,7 @@ import { auth } from '../../src/config/firebase';
 import Header from '../../src/components/Header';
 import PortionSelector from '../../src/components/PortionSelector';
 import ScalingWarningsModal from '../../src/components/ScalingWarningsModal';
+import SubstitutionBanner from '../../src/components/SubstitutionBanner';
 import { useRouter } from 'expo-router';
 
 interface IngredientItem {
@@ -1569,9 +1570,21 @@ export default function RecipesScreen() {
             <Text style={styles.sectionTitle}>
               <Ionicons name="list" size={20} color={colors.primary} /> Ingredients
             </Text>
+            
+            {/* Substitution Banner */}
+            {selectedRecipe.recipeData.substitutions && selectedRecipe.recipeData.substitutions.length > 0 && (
+              <SubstitutionBanner substitutions={selectedRecipe.recipeData.substitutions} />
+            )}
+            
             {currentPortionSize !== null && (() => {
               const originalPortions = extractPortionNumber(selectedRecipe.recipeData.portions);
               const isScaled = currentPortionSize !== originalPortions;
+              
+              // Check which ingredients were substituted
+              const substitutions = selectedRecipe.recipeData.substitutions || [];
+              const substitutedIngredientTexts = new Set(
+                substitutions.map(sub => sub.substitutedIngredient.toLowerCase())
+              );
               
               return (
                 <>
@@ -1584,10 +1597,27 @@ export default function RecipesScreen() {
                     const scaledIngredient = isScaled
                       ? scaleIngredient(ingredient, originalPortions, currentPortionSize)
                       : ingredient;
+                    const isSubstituted = substitutedIngredientTexts.has(scaledIngredient.toLowerCase());
                     return (
-                      <View key={index} style={styles.ingredientItem}>
+                      <View key={index} style={[
+                        styles.ingredientItem,
+                        isSubstituted && styles.ingredientItemSubstituted
+                      ]}>
                         <Text style={styles.bullet}>•</Text>
-                        <Text style={styles.ingredientText}>{scaledIngredient}</Text>
+                        <View style={styles.ingredientTextContainer}>
+                          <Text style={[
+                            styles.ingredientText,
+                            isSubstituted && styles.ingredientTextSubstituted
+                          ]}>
+                            {scaledIngredient}
+                          </Text>
+                          {isSubstituted && (
+                            <View style={styles.substitutedBadge}>
+                              <Ionicons name="swap-horizontal" size={12} color={semanticColors.warningBorder || '#FFB74D'} />
+                              <Text style={styles.substitutedBadgeText}>Substituted</Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     );
                   })}
@@ -1984,6 +2014,12 @@ export default function RecipesScreen() {
                   {recipe.isEdited && (
                     <EditedBannerInline />
                   )}
+                  {recipe.hasSubstitutions && (
+                    <View style={styles.substitutionBannerInline}>
+                      <Ionicons name="swap-horizontal" size={10} color={colors.surface} />
+                      <Text style={styles.substitutionBannerInlineText}>Substituted</Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.recipeCardText}>
                   <View style={styles.recipeCardHeader}>
@@ -2218,6 +2254,25 @@ const styles = StyleSheet.create({
     bottom: '30%',
     left: '50%',
   },
+  substitutionBannerInline: {
+    marginTop: 6,
+    width: 100, // Span full width of image
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    backgroundColor: semanticColors.warningBorder || '#FFB74D',
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
+  substitutionBannerInlineText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.surface,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   recipeCardImagePlaceholder: {
     width: 100,
     height: 100,
@@ -2427,6 +2482,38 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.textPrimary,
     flex: 1,
+  },
+  ingredientTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ingredientItemSubstituted: {
+    backgroundColor: semanticColors.warningBackground || '#FFF4E6',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  ingredientTextSubstituted: {
+    fontWeight: '600',
+  },
+  substitutedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: semanticColors.warningBorder || '#FFB74D',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  substitutedBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.surface,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   instructionItem: {
     flexDirection: 'row',
