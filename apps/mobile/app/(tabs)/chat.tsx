@@ -22,12 +22,7 @@ import { auth } from '../../src/config/firebase';
 import Header from '../../src/components/Header';
 
 // API endpoint - platform aware
-const API_BASE = Platform.select({
-  web: 'http://localhost:3001',      // Web browser
-  android: 'http://10.0.2.2:3001',   // Android emulator
-  ios: 'http://localhost:3001',      // iOS simulator
-  default: 'http://localhost:3001',
-});
+import API_BASE from '../../src/config/api';
 
 export default function ChatScreen() {
   const params = useLocalSearchParams<{ editingConversationID?: string }>();

@@ -9,13 +9,7 @@ import { auth } from '../../src/config/firebase';
 import type { FoodProfile, DailyNutritionTotals } from '@plateful/shared';
 import { aggregateDailyNutrition, calculatePercentage, formatNutritionValue } from '../../src/utils/nutrition';
 import { dailyTips } from '../../src/constants/dailyTips';
-
-const API_BASE = Platform.select({
-  web: 'http://localhost:3001',
-  android: 'http://10.0.2.2:3001',
-  ios: 'http://localhost:3001',
-  default: 'http://localhost:3001',
-});
+import API_BASE from '../../src/config/api';
 
 interface DayInfo {
   date: Date;
