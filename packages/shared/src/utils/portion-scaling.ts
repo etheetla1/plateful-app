@@ -46,7 +46,7 @@ export function roundToReasonableMeasurement(value: number, unit: string): numbe
   // Small volume measurements (tsp, tbsp) - round to fractions
   if (normalizedUnit === 'tsp' || normalizedUnit === 'teaspoon' || normalizedUnit === 'teaspoons' ||
       normalizedUnit === 'tbsp' || normalizedUnit === 'tablespoon' || normalizedUnit === 'tablespoons') {
-    return roundToFraction(value, [0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0]);
+    return roundToFraction(value, [0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0]);
   }
 
   // Medium volume (cups, fl oz) - round to 0.25 increments
