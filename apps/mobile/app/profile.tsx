@@ -377,6 +377,14 @@ function CookingProficiencySlider({
         ))}
       </View>
       <Text style={styles.sliderLabel}>{labels[value - 1]}</Text>
+      {value === 1 && (
+        <View style={styles.kidFriendlyBox}>
+          <Text style={styles.kidFriendlyEmoji}>👨‍🍳👩‍🍳</Text>
+          <Text style={styles.kidFriendlyText}>
+            Kid-friendly recipes with simple steps and fun ingredients!
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -1174,5 +1182,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.accent,
     marginRight: 4,
+  },
+  kidFriendlyBox: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 24,
+    backgroundColor: '#FFF9E6', // Bright, cheerful yellow background
+    borderWidth: 2,
+    borderColor: '#FFD700', // Gold border for playful feel
+    alignItems: 'center',
+    shadowColor: '#FFD700',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  kidFriendlyEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  kidFriendlyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FF6B9D', // Bright pink for playful text
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

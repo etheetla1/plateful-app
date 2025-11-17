@@ -22,3 +22,6 @@ export function getTodayDateString(timezone: string): string {
   return getDateStringInTimezone(new Date(), timezone);
 }
 
+
+
+

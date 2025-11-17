@@ -26,10 +26,10 @@ initCosmosDB();
 
 const app = new Hono();
 
-// Add CORS middleware
+// Add CORS middleware - allow all origins for development
 app.use('*', cors({
-  origin: ['http://localhost:8081', 'http://localhost:8082', 'http://localhost:8083', 'http://10.0.2.2:3000'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: '*',  // Allow all origins for development
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));
 

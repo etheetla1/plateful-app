@@ -46,7 +46,7 @@ export function roundToReasonableMeasurement(value: number, unit: string): numbe
   // Small volume measurements (tsp, tbsp) - round to fractions
   if (normalizedUnit === 'tsp' || normalizedUnit === 'teaspoon' || normalizedUnit === 'teaspoons' ||
       normalizedUnit === 'tbsp' || normalizedUnit === 'tablespoon' || normalizedUnit === 'tablespoons') {
-    return roundToFraction(value, [0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0]);
+    return roundToFraction(value, [0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0]);
   }
 
   // Medium volume (cups, fl oz) - round to 0.25 increments
@@ -79,15 +79,31 @@ export function roundToReasonableMeasurement(value: number, unit: string): numbe
     }
   }
 
-  // Count items (pieces, cloves, eggs) - always whole numbers
-  if (normalizedUnit === 'pieces' || normalizedUnit === 'piece' ||
-      normalizedUnit === 'cloves' || normalizedUnit === 'clove' ||
-      normalizedUnit === 'eggs' || normalizedUnit === 'egg' ||
-      normalizedUnit === 'strips' || normalizedUnit === 'strip' ||
-      normalizedUnit === 'boxes' || normalizedUnit === 'box' ||
-      normalizedUnit === 'cans' || normalizedUnit === 'can' ||
-      normalizedUnit === 'bunches' || normalizedUnit === 'bunch') {
-    return Math.round(value);
+  // Count items - handle differently based on whether they can be fractional
+  if (isCountItem(normalizedUnit)) {
+    if (isWholeOnlyItem(normalizedUnit)) {
+      // Eggs and cloves must be whole numbers
+      return Math.round(value);
+    } else {
+      // Container-like items (cans, boxes, bags, bunches, strips) can be fractional
+      // Round to reasonable fractions (0.25, 0.33, 0.5, 0.67, 0.75) for values < 2
+      // For larger values, round to 0.25 increments
+      if (value < 2) {
+        return roundToFraction(value, [0.25, 0.33, 0.5, 0.67, 0.75, 1.0, 1.25, 1.33, 1.5, 1.67, 1.75, 2.0]);
+      } else {
+        return roundToIncrement(value, 0.25);
+      }
+    }
+  }
+
+  // Length/measurement units (inch, knob) - round to 0.25 increments for small values
+  if (normalizedUnit === 'inch' || normalizedUnit === 'inches' || normalizedUnit === 'in' ||
+      normalizedUnit === 'knob' || normalizedUnit === 'knobs') {
+    if (value < 2) {
+      return roundToIncrement(value, 0.25);
+    } else {
+      return roundToIncrement(value, 0.5);
+    }
   }
 
   // Volume (ml, l) - similar to weight
@@ -178,6 +194,180 @@ function formatAsFraction(value: number): string {
 }
 
 /**
+ * Checks if a unit is a count item (discrete items that can be counted).
+ */
+function isCountItem(unit: string): boolean {
+  const normalizedUnit = unit.toLowerCase().trim();
+  return normalizedUnit === 'pieces' || normalizedUnit === 'piece' ||
+         normalizedUnit === 'cloves' || normalizedUnit === 'clove' ||
+         normalizedUnit === 'eggs' || normalizedUnit === 'egg' ||
+         normalizedUnit === 'strips' || normalizedUnit === 'strip' ||
+         normalizedUnit === 'boxes' || normalizedUnit === 'box' ||
+         normalizedUnit === 'cans' || normalizedUnit === 'can' ||
+         normalizedUnit === 'bunches' || normalizedUnit === 'bunch';
+}
+
+/**
+ * Checks if a unit must always be a whole number (can't be fractional).
+ * Items like eggs and cloves must be whole, but cans/boxes/bags can be fractional.
+ */
+function isWholeOnlyItem(unit: string): boolean {
+  const normalizedUnit = unit.toLowerCase().trim();
+  // Only eggs and cloves must be whole numbers
+  return normalizedUnit === 'eggs' || normalizedUnit === 'egg' ||
+         normalizedUnit === 'cloves' || normalizedUnit === 'clove';
+}
+
+/**
+ * Filters out notes that contain quantity references (e.g., "from about 2 large lemons").
+ * These notes don't make sense when scaling, so we remove them.
+ */
+function filterQuantityReferencesFromNotes(notes: string): string {
+  if (!notes) return notes;
+  
+  // Split notes by comma and filter out parts that contain quantity references
+  const noteParts = notes.split(',').map(part => part.trim()).filter(part => {
+    if (!part) return false;
+    
+    // Check for patterns that indicate quantity references:
+    // - "from about X" or "from X"
+    // - "about X" followed by a noun
+    // - "X large/small/medium" followed by a noun
+    // - Numbers followed by descriptive words that suggest quantities
+    
+    const lowerPart = part.toLowerCase();
+    
+    // Remove parts with "from about" or "from" followed by a number
+    if (/from\s+(about\s+)?\d+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Remove parts with "about" followed by a number and a noun
+    if (/about\s+\d+\s+\w+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Remove parts with numbers followed by size descriptors and nouns (e.g., "2 large lemons")
+    if (/\d+\s+(large|small|medium|extra\s+large)\s+\w+/.test(lowerPart)) {
+      return false;
+    }
+    
+    // Keep other notes (preparation instructions, etc.)
+    return true;
+  });
+  
+  return noteParts.join(', ');
+}
+
+/**
+ * Converts volume units to smaller units when quantity gets too small for practical measurement.
+ * - Cups < 1/4 cup → convert to tablespoons
+ * - Tablespoons < 1 tbsp → convert to teaspoons
+ * Handles cascading conversions (cups → tbsp → tsp if needed).
+ * Returns the converted quantity and unit, or original if no conversion needed.
+ */
+function convertToSmallerVolumeUnit(quantity: number, unit: string): { quantity: number; unit: string } {
+  let currentQuantity = quantity;
+  let currentUnit = unit.toLowerCase().trim();
+  
+  // Keep converting until we reach an appropriate unit or can't convert further
+  let converted = true;
+  while (converted) {
+    converted = false;
+    
+    // Convert cups to tablespoons if < 1/4 cup (0.25)
+    // 1 cup = 16 tablespoons
+    if ((currentUnit === 'cups' || currentUnit === 'cup') && currentQuantity > 0 && currentQuantity < 0.25) {
+      currentQuantity = currentQuantity * 16;
+      currentUnit = 'tbsp';
+      converted = true;
+      continue;
+    }
+    
+    // Convert tablespoons to teaspoons if < 1 tbsp
+    // 1 tablespoon = 3 teaspoons
+    if ((currentUnit === 'tbsp' || currentUnit === 'tablespoon' || currentUnit === 'tablespoons') && 
+        currentQuantity > 0 && currentQuantity < 1.0) {
+      currentQuantity = currentQuantity * 3;
+      currentUnit = 'tsp';
+      converted = true;
+      continue;
+    }
+  }
+  
+  return { quantity: currentQuantity, unit: currentUnit };
+}
+
+/**
+ * Returns the correct singular or plural form of a unit based on quantity.
+ * Handles both abbreviated units (tbsp, oz, etc.) and full-word units (cups, cans, etc.).
+ */
+function getUnitForm(quantity: number, unit: string): string {
+  if (!unit) return '';
+  
+  const normalizedUnit = unit.toLowerCase().trim();
+  const qty = Math.abs(quantity);
+  
+  // Abbreviated units (tbsp, tsp, oz, lb, g, kg, ml, l) don't change with singular/plural
+  // Return them as-is
+  if (normalizedUnit === 'tbsp' || normalizedUnit === 'tsp' || 
+      normalizedUnit === 'oz' || normalizedUnit === 'lb' || 
+      normalizedUnit === 'g' || normalizedUnit === 'kg' || 
+      normalizedUnit === 'ml' || normalizedUnit === 'l' ||
+      normalizedUnit === 'fl oz') {
+    return normalizedUnit;
+  }
+  
+  // For count === 1, use singular; otherwise use plural
+  if (qty === 1) {
+    // Return singular form for full-word units
+    if (normalizedUnit === 'tablespoons') return 'tablespoon';
+    if (normalizedUnit === 'teaspoons') return 'teaspoon';
+    if (normalizedUnit === 'cups' || normalizedUnit === 'cup') return 'cup';
+    if (normalizedUnit === 'ounces') return 'ounce';
+    if (normalizedUnit === 'pounds') return 'pound';
+    if (normalizedUnit === 'grams') return 'gram';
+    if (normalizedUnit === 'kilograms') return 'kilogram';
+    if (normalizedUnit === 'milliliters' || normalizedUnit === 'millilitres') return 'milliliter';
+    if (normalizedUnit === 'liters' || normalizedUnit === 'litres') return 'liter';
+    if (normalizedUnit === 'pieces' || normalizedUnit === 'piece') return 'piece';
+    if (normalizedUnit === 'cloves' || normalizedUnit === 'clove') return 'clove';
+    if (normalizedUnit === 'eggs' || normalizedUnit === 'egg') return 'egg';
+    if (normalizedUnit === 'strips' || normalizedUnit === 'strip') return 'strip';
+    if (normalizedUnit === 'boxes' || normalizedUnit === 'box') return 'box';
+    if (normalizedUnit === 'cans' || normalizedUnit === 'can') return 'can';
+    if (normalizedUnit === 'bunches' || normalizedUnit === 'bunch') return 'bunch';
+    if (normalizedUnit === 'fluid ounces') return 'fluid ounce';
+    if (normalizedUnit === 'inches' || normalizedUnit === 'in' || normalizedUnit === 'inch') return 'inch';
+    if (normalizedUnit === 'knobs' || normalizedUnit === 'knob') return 'knob';
+  } else {
+    // For quantity !== 1, return plural form
+    if (normalizedUnit === 'tablespoon') return 'tablespoons';
+    if (normalizedUnit === 'teaspoon') return 'teaspoons';
+    if (normalizedUnit === 'cup') return 'cups';
+    if (normalizedUnit === 'ounce') return 'ounces';
+    if (normalizedUnit === 'pound') return 'pounds';
+    if (normalizedUnit === 'gram') return 'grams';
+    if (normalizedUnit === 'kilogram') return 'kilograms';
+    if (normalizedUnit === 'milliliter' || normalizedUnit === 'millilitre') return 'milliliters';
+    if (normalizedUnit === 'liter' || normalizedUnit === 'litre') return 'liters';
+    if (normalizedUnit === 'piece') return 'pieces';
+    if (normalizedUnit === 'clove') return 'cloves';
+    if (normalizedUnit === 'egg') return 'eggs';
+    if (normalizedUnit === 'strip') return 'strips';
+    if (normalizedUnit === 'box') return 'boxes';
+    if (normalizedUnit === 'can') return 'cans';
+    if (normalizedUnit === 'bunch') return 'bunches';
+    if (normalizedUnit === 'fluid ounce') return 'fluid ounces';
+    if (normalizedUnit === 'inch') return 'inches';
+    if (normalizedUnit === 'knob') return 'knobs';
+  }
+  
+  // Return original if no conversion needed (already in correct form or unknown unit)
+  return normalizedUnit;
+}
+
+/**
  * Formats a scaled quantity for display.
  */
 function formatQuantity(quantity: number, unit: string): string {
@@ -194,6 +384,22 @@ function formatQuantity(quantity: number, unit: string): string {
   // For cups, prefer fractions for values less than 2
   if (normalizedUnit === 'cups' || normalizedUnit === 'cup') {
     if (quantity < 2) {
+      return formatAsFraction(quantity);
+    }
+  }
+
+  // For weight units (pounds, ounces), prefer fractions for small values
+  if (normalizedUnit === 'lb' || normalizedUnit === 'lbs' || normalizedUnit === 'pound' || normalizedUnit === 'pounds' ||
+      normalizedUnit === 'oz' || normalizedUnit === 'ounce' || normalizedUnit === 'ounces') {
+    if (quantity < 2) {
+      return formatAsFraction(quantity);
+    }
+  }
+
+  // For container-like count items (cans, boxes, bags, bunches, strips), use fractions for better readability
+  if (isCountItem(normalizedUnit) && !isWholeOnlyItem(normalizedUnit)) {
+    // Use fractions for values less than 3, otherwise show decimals
+    if (quantity < 3) {
       return formatAsFraction(quantity);
     }
   }
@@ -227,10 +433,16 @@ export function scaleIngredient(
   // Parse the ingredient
   const parsed = parseIngredient(ingredient);
 
-  // If we couldn't parse a quantity (still 1 with no unit), return original
+  // If we couldn't parse a quantity (still 1 with no unit), check if we should scale it
+  // For non-standard units or count items without units, we can still scale the quantity
   if (parsed.quantity === 1 && !parsed.unit && ingredient.trim() !== parsed.name) {
-    // Might have a number but no standard unit - try to preserve it
-    return ingredient;
+    // Check if the name starts with a number - if so, we should try to scale it
+    const nameStartsWithNumber = /^\d+/.test(parsed.name.trim());
+    if (!nameStartsWithNumber) {
+      // No number in name, might be a descriptive ingredient - preserve original
+      return ingredient;
+    }
+    // If name has a number, we'll proceed with scaling (the number will be scaled)
   }
 
   // Calculate scale factor
@@ -244,32 +456,155 @@ export function scaleIngredient(
   
   // Scale the quantity
   const scaledQuantity = parsed.quantity * scaleFactor;
-
-  // Round to reasonable measurement
-  const roundedQuantity = roundToReasonableMeasurement(scaledQuantity, parsed.unit);
+  
+  // Convert to smaller volume units BEFORE rounding to catch cases like 1/8 cup (0.125)
+  // This makes measurements more practical (e.g., "2 tbsp" instead of "1/8 cup")
+  // Check the original scaled quantity to determine if conversion is needed
+  const convertedBeforeRounding = convertToSmallerVolumeUnit(scaledQuantity, parsed.unit);
+  let roundedQuantity: number;
+  let finalUnit: string;
+  
+  // If conversion happened, round the converted quantity; otherwise round the original
+  if (convertedBeforeRounding.unit !== parsed.unit) {
+    // Conversion happened - round the converted quantity
+    roundedQuantity = roundToReasonableMeasurement(convertedBeforeRounding.quantity, convertedBeforeRounding.unit);
+    finalUnit = convertedBeforeRounding.unit;
+  } else {
+    // No conversion needed - round the original scaled quantity
+    roundedQuantity = roundToReasonableMeasurement(scaledQuantity, parsed.unit);
+    finalUnit = parsed.unit;
+    
+    // After rounding, check again if conversion is now needed (e.g., 0.125 rounded to 0.25, but we still want to convert)
+    // This handles edge cases where rounding changes the value
+    const convertedAfterRounding = convertToSmallerVolumeUnit(roundedQuantity, finalUnit);
+    if (convertedAfterRounding.unit !== finalUnit) {
+      roundedQuantity = roundToReasonableMeasurement(convertedAfterRounding.quantity, convertedAfterRounding.unit);
+      finalUnit = convertedAfterRounding.unit;
+    }
+  }
+  
+  // Enforce minimum quantities when scaling DOWN to prevent "0 cups", "0 cans", etc.
+  // This prevents nonsensical zero quantities when scaling down, but allows proper scaling up
+  const isScalingDown = scaleFactor < 1;
+  const normalizedUnit = finalUnit.toLowerCase().trim();
+  
+  // Check if we need to enforce minimums (either zero or very small values for teaspoons)
+  const needsMinimumEnforcement = isScalingDown && parsed.quantity > 0 && 
+    (roundedQuantity <= 0 || (normalizedUnit === 'tsp' && roundedQuantity < 0.25));
+  
+  if (needsMinimumEnforcement) {
+    // Determine appropriate minimum based on unit type
+    if (isCountItem(normalizedUnit)) {
+      // For whole-only items (eggs, cloves), enforce minimum of 1
+      if (isWholeOnlyItem(normalizedUnit)) {
+        roundedQuantity = 1;
+      } else {
+        // For container-like items, allow small fractions but enforce minimum of 0.25
+        roundedQuantity = 0.25;
+      }
+    } else if (normalizedUnit === 'cups' || normalizedUnit === 'cup' ||
+               normalizedUnit === 'fl oz' || normalizedUnit === 'fluid ounce' || normalizedUnit === 'fluid ounces') {
+      // For volume units (cups, fl oz), convert to smaller unit instead of enforcing minimum
+      // This should have been handled by convertToSmallerVolumeUnit, but as fallback use 1/8
+      roundedQuantity = 0.125;
+    } else if (normalizedUnit === 'tsp' || normalizedUnit === 'teaspoon' || normalizedUnit === 'teaspoons') {
+      // For teaspoons, allow scaling down but enforce minimum of 1/4 tsp (0.25)
+      // This ensures we don't go below a practical measurement
+      if (roundedQuantity < 0.25) {
+        roundedQuantity = 0.25;
+      }
+    } else if (normalizedUnit === 'tbsp' || normalizedUnit === 'tablespoon' || normalizedUnit === 'tablespoons') {
+      // For tablespoons, convert to teaspoons if < 1 tbsp (handled above), but as fallback use 1/8
+      roundedQuantity = 0.125;
+    } else if (normalizedUnit === 'lb' || normalizedUnit === 'lbs' || normalizedUnit === 'pound' || normalizedUnit === 'pounds' ||
+               normalizedUnit === 'oz' || normalizedUnit === 'ounce' || normalizedUnit === 'ounces') {
+      // For weight units (pounds, ounces), enforce minimum of 1/8 (0.125)
+      roundedQuantity = 0.125;
+    } else if (normalizedUnit === 'g' || normalizedUnit === 'gram' || normalizedUnit === 'grams' ||
+               normalizedUnit === 'kg' || normalizedUnit === 'kilogram' || normalizedUnit === 'kilograms') {
+      // For metric weight units, enforce minimum of 1g or 0.01kg
+      if (normalizedUnit === 'kg' || normalizedUnit === 'kilogram' || normalizedUnit === 'kilograms') {
+        roundedQuantity = 0.01;
+      } else {
+        roundedQuantity = 1;
+      }
+    } else if (normalizedUnit === 'ml' || normalizedUnit === 'milliliter' || normalizedUnit === 'milliliters' ||
+               normalizedUnit === 'millilitre' || normalizedUnit === 'millilitres' ||
+               normalizedUnit === 'l' || normalizedUnit === 'liter' || normalizedUnit === 'liters' ||
+               normalizedUnit === 'litre' || normalizedUnit === 'litres') {
+      // For metric volume units, enforce minimum of 1ml or 0.01l
+      if (normalizedUnit === 'l' || normalizedUnit === 'liter' || normalizedUnit === 'liters' ||
+          normalizedUnit === 'litre' || normalizedUnit === 'litres') {
+        roundedQuantity = 0.01;
+      } else {
+        roundedQuantity = 1;
+      }
+    } else if (roundedQuantity <= 0) {
+      // For any other unit, enforce minimum of 0.125 (1/8) as a reasonable default
+      roundedQuantity = 0.125;
+    }
+  }
 
   // Format the quantity
-  const formattedQuantity = formatQuantity(roundedQuantity, parsed.unit);
+  const formattedQuantity = formatQuantity(roundedQuantity, finalUnit);
+  
+  // Get the correct singular/plural form of the unit
+  // Special case: if unit is "inch" and name contains "knob", "inch" is a descriptor (stays singular)
+  // e.g., "1 inch knob" → "2 inch knobs" (not "2 inches knobs")
+  let unitForm = getUnitForm(roundedQuantity, finalUnit);
+  const normalizedFinalUnit = finalUnit.toLowerCase().trim();
+  const normalizedName = parsed.name.toLowerCase().trim();
+  
+  if (normalizedFinalUnit === 'inch' || normalizedFinalUnit === 'inches') {
+    // Check if "inch" is being used as a descriptor (followed by a noun like "knob")
+    if (normalizedName.includes('knob') || normalizedName.startsWith('knob')) {
+      // "Inch" is a descriptor, keep it singular
+      unitForm = 'inch';
+    }
+  }
 
   // Reconstruct the ingredient string
   let result = '';
   
   // Always include quantity if we have one (even if it's "1") or if there's a unit
-  if (formattedQuantity || parsed.unit) {
+  if (formattedQuantity || unitForm) {
     if (formattedQuantity) {
-      result = `${formattedQuantity}${parsed.unit ? ` ${parsed.unit}` : ''}`;
-    } else if (parsed.unit) {
+      result = `${formattedQuantity}${unitForm ? ` ${unitForm}` : ''}`;
+    } else if (unitForm) {
       // Unit without quantity - use "1" as default
-      result = `1 ${parsed.unit}`;
+      result = `1 ${unitForm}`;
     }
   }
   
+  // Add ingredient name
   if (parsed.name) {
-    result = result ? `${result} ${parsed.name}` : parsed.name;
+    let ingredientName = parsed.name;
+    
+    // Special case: if we have "inch knob" and quantity > 1, pluralize "knob"
+    // e.g., "1 inch knob" → "2 inch knobs"
+    if (normalizedFinalUnit === 'inch' || normalizedFinalUnit === 'inches') {
+      if (normalizedName.includes('knob')) {
+        if (roundedQuantity !== 1) {
+          // Pluralize "knob" to "knobs"
+          ingredientName = ingredientName.replace(/\bknob\b/gi, 'knobs');
+        }
+      }
+    }
+    
+    result = result ? `${result} ${ingredientName}` : ingredientName;
   }
   
+  // Add notes with proper comma placement, but filter out quantity references
   if (parsed.notes) {
-    result = result ? `${result}, ${parsed.notes}` : parsed.notes;
+    const filteredNotes = filterQuantityReferencesFromNotes(parsed.notes);
+    if (filteredNotes) {
+      // Only add comma if we have a result before the notes
+      if (result) {
+        result = `${result}, ${filteredNotes}`;
+      } else {
+        result = filteredNotes;
+      }
+    }
   }
 
   return result.trim() || ingredient; // Fallback to original if result is empty

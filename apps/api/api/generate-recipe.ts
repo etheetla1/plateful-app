@@ -4,6 +4,7 @@ import { extractIntent } from '../services/intent-extraction';
 import { searchRecipe } from '../services/recipe-search';
 import { scrapeRecipeContent } from '../services/recipe-scraper';
 import { formatRecipe } from '../services/recipe-formatter';
+import { substituteIngredients, detectDisallowedIngredients } from '../services/ingredient-substitution';
 import type { ChatMessage, ChatConversation, Recipe, RecipeGenerateRequest, FoodProfile } from '@plateful/shared';
 
 const app = new Hono();
@@ -44,6 +45,9 @@ app.post('/', async (c) => {
         profile = resource || null;
         if (profile) {
           console.log(`✅ User profile found with ${profile.likes.length} likes, ${profile.allergens.length} allergens`);
+          if (profile.cookingProficiency) {
+            console.log(`👨‍🍳 Cooking proficiency: ${profile.cookingProficiency} (${['Beginner', 'Novice', 'Intermediate', 'Experienced', 'Advanced'][profile.cookingProficiency - 1]})`);
+          }
         }
       } catch (error) {
         console.log(`ℹ️ No profile found for user ${userID}, proceeding without preferences`);
@@ -140,6 +144,31 @@ app.post('/', async (c) => {
         if (scrapeResult.imageUrl) {
           recipeData.imageUrl = scrapeResult.imageUrl;
         }
+
+        // Step 5.5: Check for disallowed ingredients and substitute if needed
+        if (profile && (profile.allergens?.length > 0 || profile.restrictions?.length > 0)) {
+          const disallowed = detectDisallowedIngredients(recipeData, profile);
+          
+          if (disallowed.length > 0) {
+            console.log(`⚠️ Recipe contains ${disallowed.length} disallowed ingredient(s), attempting substitutions...`);
+            
+            try {
+              const substitutionResult = await substituteIngredients(recipeData, profile);
+              recipeData = substitutionResult.recipeData;
+              
+              if (substitutionResult.substitutions.length > 0) {
+                console.log(`✅ Successfully substituted ${substitutionResult.substitutions.length} ingredient(s)`);
+              } else {
+                console.log(`ℹ️ No substitutions were made (may have been filtered out during search)`);
+              }
+            } catch (subError) {
+              console.warn(`❌ Failed to substitute ingredients: ${subError instanceof Error ? subError.message : 'Unknown error'}`);
+              // If substitution fails, try next recipe (don't return unsafe recipe)
+              lastError = subError instanceof Error ? subError : new Error(String(subError));
+              continue;
+            }
+          }
+        }
         
         successfulUrl = searchResult.url;
         console.log(`✅ Recipe formatted successfully: ${recipeData.title}`);
@@ -208,10 +237,11 @@ app.post('/', async (c) => {
         isSaved: false,
         createdAt: now,
         updatedAt: now,
+        hasSubstitutions: (recipeData.substitutions && recipeData.substitutions.length > 0) || false,
       };
 
       await recipesContainer.items.create(recipe);
-      console.log(`✅ Recipe stored with ID: ${recipeID}`);
+      console.log(`✅ Recipe stored with ID: ${recipeID}${recipe.hasSubstitutions ? ' (with substitutions)' : ''}`);
     }
 
     // Update conversation with recipe link

@@ -227,4 +227,91 @@ app.post('/ai-response', async (c) => {
   }
 });
 
+/**
+ * POST /load-recipe - Load a recipe into chat for editing (Mock version)
+ */
+app.post('/load-recipe', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { conversationID, recipeID, userID } = body;
+
+    if (!conversationID || !recipeID || !userID) {
+      return c.json({ error: 'conversationID, recipeID, and userID are required' }, 400);
+    }
+
+    const conversation = mockConversations.get(conversationID);
+    if (!conversation) {
+      return c.json({ error: 'Conversation not found' }, 404);
+    }
+
+    // Update conversation status
+    conversation.status = 'editing_recipe';
+    conversation.editingRecipeID = recipeID;
+    conversation.updatedAt = new Date().toISOString();
+    mockConversations.set(conversationID, conversation);
+
+    // Send initial message about the recipe
+    const messages = mockMessages.get(conversationID) || [];
+    const messageIndex = messages.length;
+    const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const message: ChatMessage = {
+      id: messageId,
+      conversationID,
+      messageIndex,
+      role: 'assistant',
+      content: `I've loaded your recipe. How would you like to modify it?`,
+      timestamp: new Date().toISOString(),
+    };
+
+    messages.push(message);
+    mockMessages.set(conversationID, messages);
+
+    console.log(`🎭 [MOCK] Loaded recipe ${recipeID} into conversation ${conversationID}`);
+    return c.json({ 
+      success: true, 
+      conversation,
+      recipe: {
+        id: recipeID,
+        title: 'Recipe',
+      }
+    }, 200);
+  } catch (error) {
+    console.error('🎭 Error loading recipe into chat:', error);
+    return c.json({ error: 'Failed to load recipe into chat' }, 500);
+  }
+});
+
+/**
+ * POST /save-edited-recipe - Save edited recipe (Mock version)
+ */
+app.post('/save-edited-recipe', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { conversationID, userID } = body;
+
+    if (!conversationID || !userID) {
+      return c.json({ error: 'conversationID and userID are required' }, 400);
+    }
+
+    const conversation = mockConversations.get(conversationID);
+    if (!conversation || conversation.status !== 'editing_recipe') {
+      return c.json({ error: 'No recipe being edited in this conversation' }, 400);
+    }
+
+    // Update conversation status
+    conversation.status = 'recipe_found';
+    conversation.updatedAt = new Date().toISOString();
+    mockConversations.set(conversationID, conversation);
+
+    console.log(`🎭 [MOCK] Saved edited recipe for conversation ${conversationID}`);
+    return c.json({ 
+      message: 'Recipe saved successfully! (Mock - recipe not actually saved)'
+    }, 201);
+  } catch (error) {
+    console.error('🎭 Error saving edited recipe:', error);
+    return c.json({ error: 'Failed to save edited recipe' }, 500);
+  }
+});
+
 export default app;

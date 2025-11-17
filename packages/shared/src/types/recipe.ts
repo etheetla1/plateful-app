@@ -5,6 +5,14 @@ export interface RecipeNutrition {
   fat?: string;
 }
 
+export interface IngredientSubstitution {
+  original: string;      // "peanuts"
+  substituted: string;   // "almonds"
+  reason: string;        // "allergy: peanuts"
+  originalIngredient: string;  // Full original ingredient string
+  substitutedIngredient: string;  // Full substituted ingredient string
+}
+
 export interface RecipeData {
   title: string;
   description: string;
@@ -14,6 +22,7 @@ export interface RecipeData {
   nutrition: RecipeNutrition;
   sourceUrl: string;
   imageUrl?: string;
+  substitutions?: IngredientSubstitution[];
 }
 
 export interface Recipe {
@@ -30,6 +39,7 @@ export interface Recipe {
   isEdited?: boolean; // Flag to indicate this recipe was edited from an original
   originalRecipeID?: string; // ID of the original recipe if this was edited
   userPortionSize?: number; // User's preferred serving count for this recipe
+  hasSubstitutions?: boolean; // Flag to indicate ingredients were substituted for allergens/restrictions
 }
 
 export interface RecipeGenerateRequest {
