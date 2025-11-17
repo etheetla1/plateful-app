@@ -76,7 +76,7 @@ export default function ChatScreen() {
     if (!conversationID) return;
     
     try {
-      const response = await fetch(`${API_BASE}/api/chat/messages/${conversationID}`);
+      const response = await fetch(`${API_BASE}/api/chat?action=messages&conversationID=${conversationID}`);
       if (response.ok) {
         const data = await response.json();
         const loadedMessages = data.messages || [];
@@ -91,7 +91,7 @@ export default function ChatScreen() {
         }, []);
         
         // Sort by timestamp to ensure correct order
-        uniqueMessages.sort((a, b) => 
+        uniqueMessages.sort((a: ChatMessage, b: ChatMessage) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
         
@@ -106,7 +106,7 @@ export default function ChatScreen() {
     if (!conversationID) return;
     
     try {
-      const response = await fetch(`${API_BASE}/api/chat/conversation/${conversationID}`);
+      const response = await fetch(`${API_BASE}/api/chat?action=conversation&conversationID=${conversationID}`);
       if (response.ok) {
         const data = await response.json();
         setConversation(data.conversation);
@@ -154,7 +154,7 @@ export default function ChatScreen() {
       // Clear current intent when starting new conversation
       setCurrentIntent(null);
       
-      const response = await fetch(`${API_BASE}/api/chat/conversation`, {
+      const response = await fetch(`${API_BASE}/api/chat?action=conversation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userID: auth.currentUser.uid }),
@@ -201,7 +201,7 @@ export default function ChatScreen() {
     try {
       console.log(`📤 Sending assistant message to ${convID}`);
       
-      const response = await fetch(`${API_BASE}/api/chat/message`, {
+      const response = await fetch(`${API_BASE}/api/chat?action=message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -243,7 +243,7 @@ export default function ChatScreen() {
       console.log(`📤 Sending user message...`);
       
       // Send user message
-      const userResponse = await fetch(`${API_BASE}/api/chat/message`, {
+      const userResponse = await fetch(`${API_BASE}/api/chat?action=message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -287,7 +287,7 @@ export default function ChatScreen() {
     try {
       console.log('🤖 Calling real AI for response...');
       
-      const response = await fetch(`${API_BASE}/api/chat/ai-response`, {
+      const response = await fetch(`${API_BASE}/api/chat?action=ai-response`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -345,12 +345,17 @@ export default function ChatScreen() {
     try {
       console.log(`🔄 Generating recipe for conversation ${conversationID}...`);
       
+      // Default to 4 servings, but could be enhanced to ask user for preference
+      const servings = 4;
+      
       const response = await fetch(`${API_BASE}/api/generate-recipe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversationID,
           userID: auth.currentUser.uid,
+          servings: servings,
+          dietaryRestrictions: [], // Could be enhanced to get from user profile
         }),
       });
 
@@ -400,7 +405,7 @@ export default function ChatScreen() {
     try {
       console.log(`💾 Saving edited recipe for conversation ${conversationID}...`);
       
-      const response = await fetch(`${API_BASE}/api/chat/save-edited-recipe`, {
+      const response = await fetch(`${API_BASE}/api/chat?action=save-edited-recipe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

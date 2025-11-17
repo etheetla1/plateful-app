@@ -161,6 +161,18 @@ export default function Dashboard() {
     if (!auth.currentUser) return;
 
     try {
+      console.log('🔍 Testing API connectivity to:', `${API_BASE}/api/health`);
+      
+      // First test basic connectivity with health endpoint
+      const healthResponse = await fetch(`${API_BASE}/api/health`);
+      console.log('🏥 Health check response status:', healthResponse.status);
+      
+      if (healthResponse.ok) {
+        const healthData = await healthResponse.json();
+        console.log('🏥 Health check data:', healthData);
+      }
+      
+      console.log('👤 Attempting to load profile from:', `${API_BASE}/api/profile/${auth.currentUser.uid}`);
       const response = await fetch(`${API_BASE}/api/profile/${auth.currentUser.uid}`);
       if (response.ok) {
         const data = await response.json();
@@ -269,7 +281,7 @@ export default function Dashboard() {
       const endDateStr = getDateStringInTimezone(endDate, userTimezone);
 
       const [recipesResponse, mealsResponse] = await Promise.all([
-        fetch(`${API_BASE}/api/generate-recipe/user/${auth.currentUser.uid}`),
+        fetch(`${API_BASE}/api/recipe`),
         fetch(`${API_BASE}/api/meal-tracking/user/${auth.currentUser.uid}/range?startDate=${startDateStr}&endDate=${endDateStr}`).catch(() => null),
       ]);
 

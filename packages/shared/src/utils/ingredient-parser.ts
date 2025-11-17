@@ -240,9 +240,9 @@ export function parseIngredient(
       const avg = (firstNum + secondNum) / 2;
       // Round to reasonable precision (0.25 increments for small values, whole numbers for larger)
       if (avg < 5) {
-        return Math.round(avg * 4) / 4;
+        return (Math.round(avg * 4) / 4).toString();
       } else {
-        return Math.round(avg);
+        return Math.round(avg).toString();
       }
     }
     return match; // Return original if parsing fails

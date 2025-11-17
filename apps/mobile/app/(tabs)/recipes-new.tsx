@@ -1463,7 +1463,7 @@ export default function RecipesScreen() {
       const conversationID = convData.conversation.conversationID;
 
       // Load recipe into chat
-      const loadResponse = await fetch(`${API_BASE}/api/chat/load-recipe`, {
+      const loadResponse = await fetch(`${API_BASE}/api/chat?action=load-recipe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

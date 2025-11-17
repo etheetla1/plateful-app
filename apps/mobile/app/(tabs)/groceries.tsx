@@ -20,14 +20,7 @@ import { groupGroceryItems, type GroupedGroceryItems } from '@plateful/shared/sr
 import { ScrollView, TouchableWithoutFeedback } from 'react-native';
 import Header from '../../src/components/Header';
 import { auth } from '../../src/config/firebase';
-
-// API endpoint - platform aware
-const API_BASE = Platform.select({
-  web: 'http://localhost:3001',
-  android: 'http://10.0.2.2:3001',
-  ios: 'http://localhost:3001',
-  default: 'http://localhost:3001',
-});
+import { API_BASE } from '../../src/config/api';
 
 type ViewMode = 'lists' | 'items';
 type GroceryTab = 'lists' | 'pantry';
@@ -54,7 +47,7 @@ function PantryViewContent({
     if (!auth.currentUser) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/pantry/${auth.currentUser.uid}`, {
+      const response = await fetch(`${API_BASE}/api/pantry?userID=${auth.currentUser.uid}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -84,7 +77,7 @@ function PantryViewContent({
     if (!auth.currentUser) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/pantry/${auth.currentUser.uid}/${itemId}`, {
+      const response = await fetch(`${API_BASE}/api/pantry?userID=${auth.currentUser.uid}&itemId=${itemId}`, {
         method: 'DELETE',
       });
 
@@ -338,7 +331,7 @@ export default function Groceries() {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE}/api/grocery/${auth.currentUser.uid}/lists`);
+      const response = await fetch(`${API_BASE}/api/grocery?userID=${auth.currentUser.uid}&action=lists`);
       
       if (!response.ok) {
         throw new Error('Failed to load grocery lists');
@@ -358,7 +351,7 @@ export default function Groceries() {
     if (!auth.currentUser) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/pantry/${auth.currentUser.uid}`);
+      const response = await fetch(`${API_BASE}/api/pantry?userID=${auth.currentUser.uid}`);
       
       if (!response.ok) {
         throw new Error('Failed to load pantry items');
@@ -375,7 +368,7 @@ export default function Groceries() {
     if (!auth.currentUser) return;
 
     try {
-      const response = await fetch(`${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${listID}`);
+      const response = await fetch(`${API_BASE}/api/grocery?userID=${auth.currentUser.uid}&action=list&listID=${listID}`);
       
       if (!response.ok) {
         throw new Error('Failed to load list items');
@@ -396,7 +389,7 @@ export default function Groceries() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${selectedList.id}/items/${item.id}`,
+        `${API_BASE}/api/grocery?userID=${auth.currentUser.uid}&action=updateItem&listID=${selectedList.id}&itemID=${item.id}`,
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -441,7 +434,7 @@ export default function Groceries() {
               if (!auth.currentUser) return;
               
               const response = await fetch(
-                `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists/${listID}`,
+                `${API_BASE}/api/grocery?userID=${auth.currentUser.uid}&action=deleteList&listID=${listID}`,
                 { method: 'DELETE' }
               );
 
@@ -471,7 +464,7 @@ export default function Groceries() {
     setLoadingCreate(true);
     try {
       const response = await fetch(
-        `${API_BASE}/api/grocery/${auth.currentUser.uid}/lists`,
+        `${API_BASE}/api/grocery?userID=${auth.currentUser.uid}&action=createList`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

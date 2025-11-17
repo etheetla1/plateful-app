@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Button, Input } from '@plateful/ui';
 import { Ionicons } from '@expo/vector-icons';
+import API_BASE from '../../src/config/api';
 
 // Simple markdown parser for mobile-friendly display
 const parseMarkdown = (text: string) => {
@@ -61,6 +62,46 @@ const parseMarkdown = (text: string) => {
   return elements;
 };
 
+// Helper function to format recipe data as markdown
+const formatRecipeAsMarkdown = (recipe: any) => {
+  const recipeData = recipe.recipeData || recipe;
+  let markdown = `# ${recipeData.title}\n\n`;
+  
+  if (recipeData.description) {
+    markdown += `${recipeData.description}\n\n`;
+  }
+  
+  if (recipeData.ingredients && recipeData.ingredients.length > 0) {
+    markdown += `## Ingredients\n\n`;
+    recipeData.ingredients.forEach((ingredient: any) => {
+      if (typeof ingredient === 'string') {
+        markdown += `- ${ingredient}\n`;
+      } else if (ingredient.name) {
+        markdown += `- ${ingredient.amount || ''} ${ingredient.name}\n`;
+      }
+    });
+    markdown += `\n`;
+  }
+  
+  if (recipeData.instructions && recipeData.instructions.length > 0) {
+    markdown += `## Instructions\n\n`;
+    recipeData.instructions.forEach((instruction: string, index: number) => {
+      markdown += `${index + 1}. ${instruction}\n`;
+    });
+    markdown += `\n`;
+  }
+  
+  if (recipeData.prepTime || recipeData.cookTime || recipeData.servings) {
+    markdown += `## Details\n\n`;
+    if (recipeData.prepTime) markdown += `**Prep Time:** ${recipeData.prepTime} minutes\n`;
+    if (recipeData.cookTime) markdown += `**Cook Time:** ${recipeData.cookTime} minutes\n`;
+    if (recipeData.servings) markdown += `**Servings:** ${recipeData.servings}\n`;
+    if (recipeData.difficulty) markdown += `**Difficulty:** ${recipeData.difficulty}\n`;
+  }
+  
+  return markdown;
+};
+
 export default function Recipes() {
   const [dishName, setDishName] = useState('');
   const [recipe, setRecipe] = useState('');
@@ -80,29 +121,30 @@ export default function Recipes() {
     setSourceUrl('');
 
     try {
-      // Call the API server (which has your simple-recipe.ts logic)
-      const apiUrl = Platform.select({
-        web: 'http://localhost:3000/api/recipe',
-        android: 'http://10.0.2.2:3000/api/recipe',
-        ios: 'http://localhost:3000/api/recipe',
-        default: 'http://localhost:3000/api/recipe',
-      });
-      
-      const response = await fetch(apiUrl, {
-        method: 'POST',
+      // Call our Vercel API endpoint
+      const response = await fetch(`${API_BASE}/api/recipe`, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ dish: dishName }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch recipe');
+        throw new Error('Failed to fetch recipes');
       }
 
       const data = await response.json();
-      setRecipe(data.recipe);
-      setSourceUrl(data.sourceUrl || '');
+      const recipes = data.recipes || [];
+      
+      // For now, show the first recipe as a demo
+      if (recipes.length > 0) {
+        const firstRecipe = recipes[0];
+        const recipeText = formatRecipeAsMarkdown(firstRecipe);
+        setRecipe(recipeText);
+        setSourceUrl(''); // No source URL for mock data
+      } else {
+        setRecipe('No recipes found. Try a different search term.');
+      }
     } catch (err) {
       setError('Failed to get recipe. Please check your API key and try again.');
       console.error('Recipe error:', err);

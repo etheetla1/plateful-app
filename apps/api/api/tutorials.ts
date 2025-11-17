@@ -168,10 +168,10 @@ app.get('/scrape', async (c) => {
       errorMessage = error.message || 'Unknown error occurred while scraping tutorial';
     }
     
-    return c.json({ 
+    return c.json({
       error: errorMessage,
       details: error.message || 'Unknown error'
-    }, statusCode);
+    }, statusCode as any);
   }
 });
 
