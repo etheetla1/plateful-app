@@ -19,15 +19,8 @@ import { allColors as colors } from '@plateful/shared';
 import type { ChatMessage, ChatConversation } from '@plateful/shared';
 import type { IntentExtractionResult } from '@plateful/shared';
 import { auth } from '../../src/config/firebase';
+import { API_BASE } from '../../src/config/api';
 import Header from '../../src/components/Header';
-
-// API endpoint - platform aware
-const API_BASE = Platform.select({
-  web: 'http://localhost:3001',      // Web browser
-  android: 'http://10.0.2.2:3001',   // Android emulator
-  ios: 'http://localhost:3001',      // iOS simulator
-  default: 'http://localhost:3001',
-});
 
 export default function ChatScreen() {
   const params = useLocalSearchParams<{ editingConversationID?: string }>();
