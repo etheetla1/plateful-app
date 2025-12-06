@@ -317,6 +317,12 @@ STRIPE_SECRET_KEY=sk_test_...  # Use test key (sk_test_...) for development
 STRIPE_WEBHOOK_SECRET=whsec_...  # From Stripe Dashboard → Webhooks
 STRIPE_PRICE_ID=price_...  # Monthly subscription price ID from Stripe Dashboard
 
+# 💳 Stripe Test Mode - Use these test cards:
+# Card Number: 4242 4242 4242 4242
+# Expiry: Any future date (e.g., 12/34)
+# CVC: Any 3 digits (e.g., 123)
+# ZIP: Any valid ZIP code
+
 # Optional: App URL for webhook callbacks
 APP_URL=https://your-app.azurewebsites.net
 ```
